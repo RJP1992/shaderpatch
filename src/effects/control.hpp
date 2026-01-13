@@ -6,6 +6,7 @@
 #include "../effects/postprocess.hpp"
 #include "../effects/profiler.hpp"
 #include "../effects/ssao.hpp"
+#include "../effects/clouds.hpp"
 #include "com_ptr.hpp"
 
 #include <filesystem>
@@ -71,6 +72,7 @@ public:
    effects::FFX_cas ffx_cas;
    effects::Mask_nan mask_nan;
    effects::Profiler profiler;
+   effects::Clouds clouds;
 
 private:
    auto output_params_to_yaml_string() noexcept -> std::string;

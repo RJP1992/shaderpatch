@@ -1,0 +1,149 @@
+Overridden RenderType: normal
+Constant Buffer Name: cloud_layer
+
+Material Options:
+   Unlit: yes
+   Transparent: yes
+
+Properties:
+   # Row 1: layer_scale, layer_height, scroll_angle, scroll_speed
+   LayerScale:
+      Type: float
+      Default: 0.5
+      Range: [0.1, 5.0]
+
+   LayerHeight:
+      Type: float
+      Default: 100.0
+      Range: [0.0, 1000.0]
+
+   ScrollAngle:
+      Type: float
+      Default: 45.0
+      Range: [0.0, 360.0]
+
+   ScrollSpeed:
+      Type: float
+      Default: 0.008
+      Range: [0.0, 0.1]
+
+   # Row 2: cloud_threshold, cloud_softness, cloud_density, detail_scale
+   CloudThreshold:
+      Type: float
+      Default: 0.45
+      Range: [0.0, 1.0]
+
+   CloudSoftness:
+      Type: float
+      Default: 0.25
+      Range: [0.05, 1.0]
+
+   CloudDensity:
+      Type: float
+      Default: 0.9
+      Range: [0.0, 1.0]
+
+   DetailScale:
+      Type: float
+      Default: 3.0
+      Range: [1.0, 10.0]
+
+   # Row 3: detail_strength, edge_fade_start, edge_fade_end, height_fade_start
+   DetailStrength:
+      Type: float
+      Default: 0.3
+      Range: [0.0, 1.0]
+
+   EdgeFadeStart:
+      Type: float
+      Default: 8000.0
+      Range: [0.0, 20000.0]
+
+   EdgeFadeEnd:
+      Type: float
+      Default: 11000.0
+      Range: [0.0, 20000.0]
+
+   HeightFadeStart:
+      Type: float
+      Default: 500.0
+      Range: [0.0, 5000.0]
+
+   # Row 4: cloud_color_lit (float3), lighting_wrap
+   CloudColorLit:
+      Type: vec3
+      Default: [1.0, 0.98, 0.95]
+      Range: [0.0, 2.0]
+
+   LightingWrap:
+      Type: float
+      Default: 0.4
+      Range: [0.0, 1.0]
+
+   # Row 5: cloud_color_dark (float3), sun_color_influence
+   CloudColorDark:
+      Type: vec3
+      Default: [0.6, 0.65, 0.75]
+      Range: [0.0, 2.0]
+
+   SunColorInfluence:
+      Type: float
+      Default: 0.3
+      Range: [0.0, 1.0]
+
+   # Row 6: horizon_fade_start, horizon_fade_end, cloud_brightness, min_brightness
+   HorizonFadeStart:
+      Type: float
+      Default: 0.1
+      Range: [0.0, 1.0]
+
+   HorizonFadeEnd:
+      Type: float
+      Default: 0.02
+      Range: [0.0, 0.5]
+
+   CloudBrightness:
+      Type: float
+      Default: 1.0
+      Range: [0.0, 3.0]
+
+   MinBrightness:
+      Type: float
+      Default: 0.3
+      Range: [0.0, 1.0]
+
+   # Row 7: near_fade_start, near_fade_end, world_scale, fresnel_power
+   NearFadeStart:
+      Type: float
+      Default: 500.0
+      Range: [0.0, 2000.0]
+
+   NearFadeEnd:
+      Type: float
+      Default: 100.0
+      Range: [0.0, 1000.0]
+
+   WorldScale:
+      Type: float
+      Default: 0.0001
+      Range: [0.00001, 0.001]
+
+   FresnelPower:
+      Type: float
+      Default: 3.0
+      Range: [0.5, 10.0]
+
+   # Row 8: fresnel_strength, depth_bias, _pad0, _pad1
+   FresnelStrength:
+      Type: float
+      Default: 0.8
+      Range: [0.0, 1.0]
+
+   DepthBias:
+      Type: float
+      Default: 0.0005
+      Range: [0.0, 0.01]
+
+Resource Properties:
+   CloudNoise:
+   CloudDetail:

@@ -1,0 +1,20 @@
+{
+  "group_name": "clouds",
+  "source_name": "clouds.fx",
+
+  "entrypoints": {
+    "cloud_vs": {
+      "stage": "vertex",
+      "vertex_state": {
+        "input_layout": "$auto"
+      }
+    },
+    "clouds_ps": {
+      "stage": "pixel"
+    }
+  },
+
+  "rendertypes": {},
+
+  "states": {}
+}

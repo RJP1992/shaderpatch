@@ -40,6 +40,10 @@ Film_grain_params show_film_grain_imgui(Film_grain_params params) noexcept;
 
 DOF_params show_dof_imgui(DOF_params params) noexcept;
 
+Fog_params show_fog_imgui(Fog_params params) noexcept;
+
+Cloud_params show_clouds_imgui(Cloud_params params) noexcept;
+
 SSAO_params show_ssao_imgui(SSAO_params params) noexcept;
 
 FFX_cas_params show_ffx_cas_imgui(FFX_cas_params params) noexcept;
@@ -53,6 +57,7 @@ Control::Control(Com_ptr<ID3D11Device5> device, shader::Database& shaders) noexc
      ssao{device, shaders},
      ffx_cas{device, shaders},
      mask_nan{device, shaders},
+     clouds{ device, shaders },
      profiler{device}
 {
    if (user_config.graphics.enable_user_effects_config) {
@@ -217,6 +222,11 @@ void Control::show_imgui(HWND game_window) noexcept
          ImGui::EndTabItem();
       }
 
+      if (ImGui::BeginTabItem("Clouds")) {
+          clouds.params(show_clouds_imgui(clouds.params()));
+          ImGui::EndTabItem();
+      }
+
       ImGui::EndTabBar();
    }
 
@@ -239,6 +249,8 @@ void Control::read_config(YAML::Node config)
    postprocess.film_grain_params(
       config["FilmGrain"s].as<Film_grain_params>(Film_grain_params{}));
    postprocess.dof_params(config["DOF"s].as<DOF_params>(DOF_params{}));
+   postprocess.fog_params(config["Fog"s].as<Fog_params>(Fog_params{}));
+   clouds.params(config["Clouds"s].as<Cloud_params>(Cloud_params{}));
    ssao.params(config["SSAO"s].as<SSAO_params>(SSAO_params{false}));
    ffx_cas.params(config["ContrastAdaptiveSharpening"s].as<FFX_cas_params>(
       FFX_cas_params{false}));
@@ -254,6 +266,8 @@ auto Control::output_params_to_yaml_string() noexcept -> std::string
    config["Vignette"s] = postprocess.vignette_params();
    config["FilmGrain"s] = postprocess.film_grain_params();
    config["DOF"s] = postprocess.dof_params();
+   config["Fog"s] = postprocess.fog_params();
+   config["Clouds"s] = clouds.params();
    config["SSAO"s] = ssao.params();
    config["ContrastAdaptiveSharpening"s] = ffx_cas.params();
 
@@ -434,6 +448,12 @@ void Control::show_post_processing_imgui() noexcept
          postprocess.dof_params(show_dof_imgui(postprocess.dof_params()));
 
          ImGui::EndTabItem();
+      }
+
+      if (ImGui::BeginTabItem("Fog")) {
+          postprocess.fog_params(show_fog_imgui(postprocess.fog_params()));
+
+          ImGui::EndTabItem();
       }
 
       if (ImGui::BeginTabItem("SSAO")) {
@@ -745,6 +765,209 @@ DOF_params show_dof_imgui(DOF_params params) noexcept
    params.f_stop = std::max(params.f_stop, 1.0f);
 
    return params;
+}
+
+Fog_params show_fog_imgui(Fog_params params) noexcept
+{
+    ImGui::Checkbox("Enabled", &params.enabled);
+
+    ImGui::ColorEdit3("Color", &params.color.x);
+
+    ImGui::DragFloat("Density", &params.density, 0.01f, 0.0f, 2.0f);
+    ImGui::SetItemTooltip("Overall fog thickness multiplier.");
+
+    ImGui::DragFloat("Start Distance", &params.start_distance, 1.0f, 0.0f, 10000.0f);
+    ImGui::SetItemTooltip("Distance where fog begins.");
+
+    ImGui::DragFloat("End Distance", &params.end_distance, 1.0f, 0.0f, 10000.0f);
+    ImGui::SetItemTooltip("Distance where fog reaches full density.");
+
+    ImGui::Separator();
+
+    ImGui::Checkbox("Height Fog", &params.height_fog_enabled);
+    ImGui::SetItemTooltip("Enable height-based fog density falloff.");
+
+    if (params.height_fog_enabled) {
+        const char* height_modes[] = { "Above Only", "Below Only", "Both" };
+        int height_mode_int = static_cast<int>(params.height_mode);
+        if (ImGui::Combo("Height Mode", &height_mode_int, height_modes, 3)) {
+            params.height_mode = static_cast<Fog_height_mode>(height_mode_int);
+        }
+        ImGui::SetItemTooltip("Above Only: Fog fades above max.\nBelow Only: Fog fades below min.\nBoth: Fog densest in band, fades both directions.");
+
+        ImGui::DragFloat("Height Min", &params.height_min, 1.0f, -1000.0f, 1000.0f);
+        ImGui::SetItemTooltip("Bottom of fog band (world Y).");
+
+        ImGui::DragFloat("Height Max", &params.height_max, 1.0f, -1000.0f, 1000.0f);
+        ImGui::SetItemTooltip("Top of fog band (world Y).");
+
+        ImGui::DragFloat("Height Falloff", &params.height_falloff, 0.001f, 0.0f, 0.1f);
+        ImGui::SetItemTooltip("How quickly fog fades outside the band.");
+    }
+
+    ImGui::Separator();
+
+    const char* blend_modes[] = { "Normal", "Tinted", "Atmospheric", "Additive", "Screen" };
+    int blend_mode_int = static_cast<int>(params.blend_mode);
+    if (ImGui::Combo("Blend Mode", &blend_mode_int, blend_modes, 5)) {
+        params.blend_mode = static_cast<Fog_blend_mode>(blend_mode_int);
+    }
+    ImGui::SetItemTooltip("How fog color blends with the scene.");
+
+    ImGui::Separator();
+
+    ImGui::Checkbox("Noise", &params.noise_enabled);
+    ImGui::SetItemTooltip("Add noise/turbulence to break up uniform fog.");
+
+    if (params.noise_enabled) {
+        ImGui::DragFloat("Noise Scale", &params.noise_scale, 1.0f, 10.0f, 500.0f);
+        ImGui::SetItemTooltip("World units per noise tile. Smaller = more detailed.");
+
+        ImGui::DragFloat("Noise Intensity", &params.noise_intensity, 0.01f, 0.0f, 1.0f);
+        ImGui::SetItemTooltip("How much noise affects fog density.");
+
+        ImGui::DragFloat("Noise Speed", &params.noise_speed, 0.01f, 0.0f, 1.0f);
+        ImGui::SetItemTooltip("Animation speed for drifting fog.");
+    }
+
+    return params;
+}
+
+Cloud_params show_clouds_imgui(Cloud_params params) noexcept
+{
+    ImGui::Checkbox("Enabled", &params.enabled);
+
+    if (!params.enabled) return params;
+
+    // Presets
+    ImGui::Separator();
+    ImGui::Text("Presets");
+
+    if (ImGui::Button("Scattered Cumulus")) {
+        params.particles_per_volume = 25;
+        params.particle_size = 100.0f;
+        params.cloud_alpha = 0.5f;
+        params.generate_default_volumes(40, 350.0f, 2500.0f);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Dense Overcast")) {
+        params.particles_per_volume = 40;
+        params.particle_size = 120.0f;
+        params.cloud_alpha = 0.7f;
+        params.generate_default_volumes(80, 280.0f, 2000.0f);
+    }
+
+    if (ImGui::Button("Wispy High")) {
+        params.particles_per_volume = 15;
+        params.particle_size = 150.0f;
+        params.cloud_alpha = 0.3f;
+        params.generate_default_volumes(30, 500.0f, 3000.0f);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Low Fog")) {
+        params.particles_per_volume = 50;
+        params.particle_size = 80.0f;
+        params.cloud_alpha = 0.8f;
+        params.generate_default_volumes(60, 30.0f, 2000.0f);
+    }
+
+    // Generation
+    ImGui::Separator();
+    ImGui::Text("Custom Generation");
+
+    static int gen_count = 50;
+    static float gen_height = 300.0f;
+    static float gen_spread = 2000.0f;
+
+    ImGui::DragInt("Volume Count", &gen_count, 1, 5, 200);
+    ImGui::DragFloat("Height", &gen_height, 10.0f, -100.0f, 1000.0f);
+    ImGui::DragFloat("Spread", &gen_spread, 50.0f, 500.0f, 10000.0f);
+
+    if (ImGui::Button("Generate")) {
+        params.generate_default_volumes(gen_count, gen_height, gen_spread);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Clear All")) {
+        params.volumes.clear();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Rebuild Particles")) {
+        // Force rebuild by toggling a volume slightly
+        // This is a workaround - ideally we'd have a direct dirty flag
+        if (!params.volumes.empty()) {
+            params.volumes[0].density += 0.0001f;
+            params.volumes[0].density -= 0.0001f;
+        }
+    }
+
+    // Particle settings
+    ImGui::Separator();
+    ImGui::Text("Particles");
+
+    ImGui::DragInt("Per Volume", &params.particles_per_volume, 1, 5, 100);
+    ImGui::SetItemTooltip("More particles = denser clouds, higher cost");
+    ImGui::DragFloat("Size", &params.particle_size, 5.0f, 20.0f, 300.0f);
+    ImGui::DragFloat("Alpha", &params.cloud_alpha, 0.02f, 0.1f, 1.0f);
+
+    int total_particles = params.particles_per_volume * static_cast<int>(params.volumes.size());
+    ImGui::Text("Total particles: %d", total_particles);
+
+    // Colors
+    ImGui::Separator();
+    ImGui::Text("Colors");
+
+    ImGui::ColorEdit3("Light", &params.light_color.x);
+    ImGui::ColorEdit3("Dark", &params.dark_color.x);
+
+    // Animation
+    ImGui::Separator();
+    ImGui::Text("Animation");
+
+    ImGui::DragFloat("Wind Speed", &params.wind_speed, 0.5f, 0.0f, 20.0f);
+    ImGui::DragFloat2("Wind Dir", &params.wind_direction.x, 0.1f, -1.0f, 1.0f);
+
+    // Fade
+    ImGui::Separator();
+    ImGui::Text("Fade");
+
+    ImGui::DragFloat("Near", &params.fade_near, 10.0f, 10.0f, 500.0f);
+    ImGui::DragFloat("Far", &params.fade_far, 100.0f, 500.0f, 20000.0f);
+    ImGui::DragFloat("Depth Cutoff", &params.depth_cutoff_distance, 5.0f, 10.0f, 200.0f);
+
+    // Volume info
+    ImGui::Separator();
+    ImGui::Text("Volumes: %d", static_cast<int>(params.volumes.size()));
+
+    if (ImGui::Button("Add Volume")) {
+        Cloud_volume vol;
+        vol.position = glm::vec3(0.0f, 300.0f, 0.0f);
+        vol.radius = 100.0f;
+        vol.scale = glm::vec3(1.0f, 0.3f, 1.0f);
+        vol.density = 1.0f;
+        params.volumes.push_back(vol);
+    }
+
+    if (params.volumes.size() <= 10 && params.volumes.size() > 0) {
+        if (ImGui::TreeNode("Volume List")) {
+            int to_remove = -1;
+            for (int i = 0; i < static_cast<int>(params.volumes.size()); ++i) {
+                ImGui::PushID(i);
+                if (ImGui::TreeNode("Vol", "[%d]", i)) {
+                    ImGui::DragFloat3("Pos", &params.volumes[i].position.x, 10.0f);
+                    ImGui::DragFloat("Radius", &params.volumes[i].radius, 5.0f, 20.0f, 300.0f);
+                    ImGui::DragFloat3("Scale", &params.volumes[i].scale.x, 0.05f, 0.1f, 2.0f);
+                    ImGui::DragFloat("Density", &params.volumes[i].density, 0.1f, 0.1f, 2.0f);
+                    if (ImGui::Button("Remove")) to_remove = i;
+                    ImGui::TreePop();
+                }
+                ImGui::PopID();
+            }
+            if (to_remove >= 0) params.volumes.erase(params.volumes.begin() + to_remove);
+            ImGui::TreePop();
+        }
+    }
+
+    return params;
 }
 
 SSAO_params show_ssao_imgui(SSAO_params params) noexcept

@@ -419,6 +419,30 @@
     <None Include="src\normal_bf3.fx">
       <Filter>src</Filter>
     </None>
+    <None Include="definitions\patch\cloud_layer.json">
+      <Filter>definitions\patch</Filter>
+    </None>
+    <None Include="definitions\patch\normal_bf3_ambient.json">
+      <Filter>definitions\patch</Filter>
+    </None>
+    <None Include="definitions\patch\normal_bf3_character.json">
+      <Filter>definitions\patch</Filter>
+    </None>
+    <None Include="definitions\patch\skybox_blend.json">
+      <Filter>definitions\patch</Filter>
+    </None>
+    <None Include="src\skybox_blend.fx">
+      <Filter>src</Filter>
+    </None>
+    <None Include="src\cloud_layer.fx">
+      <Filter>src</Filter>
+    </None>
+    <None Include="src\normal_bf3_ambient.fx">
+      <Filter>src</Filter>
+    </None>
+    <None Include="src\normal_bf3_character.fx">
+      <Filter>src</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="definitions">

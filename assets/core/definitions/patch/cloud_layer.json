@@ -1,0 +1,133 @@
+{
+  "group_name": "cloud_layer",
+  "source_name": "cloud_layer.fx",
+
+  "entrypoints": {
+    "main_vs": {
+      "stage": "vertex",
+
+      "vertex_state": {
+        "input_layout": "$auto",
+
+        "generic_input": {
+          "dynamic_compression": true,
+          "position": true,
+          "skinned": false,
+          "normal": true,
+          "tangents": false,
+          "tangents_unflagged": false,
+          "color": true,
+          "texture_coords": true
+        }
+      },
+
+      "defines": []
+    },
+
+    "main_ps": {
+      "stage": "pixel"
+    }
+  },
+
+  "rendertypes": { 
+    "cloud_layer": {}
+  },
+
+  "states": {
+    "unlit transparent": {
+      "type": "standard",
+
+      "rs_state": {
+        "cull_mode": "none"
+      },
+
+      "vertex_shader": {
+        "entrypoint": "main_vs"
+      },
+
+      "pixel_shader": {
+        "entrypoint": "main_ps"
+      }
+    },
+
+    "unlit transparent hardedged": {
+      "type": "standard",
+
+      "rs_state": {
+        "cull_mode": "none"
+      },
+
+      "vertex_shader": {
+        "entrypoint": "main_vs"
+      },
+
+      "pixel_shader": {
+        "entrypoint": "main_ps"
+      }
+    },
+
+    "near transparent": {
+      "type": "standard",
+
+      "rs_state": {
+        "cull_mode": "none"
+      },
+
+      "vertex_shader": {
+        "entrypoint": "main_vs"
+      },
+
+      "pixel_shader": {
+        "entrypoint": "main_ps"
+      }
+    },
+
+    "near transparent hardedged": {
+      "type": "standard",
+
+      "rs_state": {
+        "cull_mode": "none"
+      },
+
+      "vertex_shader": {
+        "entrypoint": "main_vs"
+      },
+
+      "pixel_shader": {
+        "entrypoint": "main_ps"
+      }
+    },
+
+    "near transparent projectedtex": {
+      "type": "standard",
+
+      "rs_state": {
+        "cull_mode": "none"
+      },
+
+      "vertex_shader": {
+        "entrypoint": "main_vs"
+      },
+
+      "pixel_shader": {
+        "entrypoint": "main_ps"
+      }
+    },
+
+    "near transparent hardedged projectedtex": {
+      "type": "standard",
+
+      "rs_state": {
+        "cull_mode": "none"
+      },
+
+      "vertex_shader": {
+        "entrypoint": "main_vs"
+      },
+
+      "pixel_shader": {
+        "entrypoint": "main_ps"
+      }
+    }
+  }
+}

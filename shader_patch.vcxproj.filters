@@ -283,6 +283,10 @@
     <ClCompile Include="src\dinput_hooks.cpp" />
     <ClCompile Include="src\message_hooks.cpp" />
     <ClCompile Include="src\imgui\imgui_tables.cpp" />
+    <ClCompile Include="src\game_support\game_memory.cpp">
+      <Filter>src\game_support</Filter>
+    </ClCompile>
+    <ClCompile Include="src\effects\clouds.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\shader_constants.hpp">
@@ -711,6 +715,11 @@
     <ClInclude Include="src\input_config.hpp" />
     <ClInclude Include="src\dinput_hooks.hpp" />
     <ClInclude Include="src\message_hooks.hpp" />
+    <ClInclude Include="src\game_support\game_memory.hpp">
+      <Filter>src\game_support</Filter>
+    </ClInclude>
+    <ClInclude Include="src\effects\clouds.hpp" />
+    <ClInclude Include="src\effects\clouds_params.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="d3d9.def" />

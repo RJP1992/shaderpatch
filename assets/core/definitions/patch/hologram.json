@@ -1,0 +1,52 @@
+{
+  "group_name": "hologram",
+  "source_name": "hologram.fx",
+
+  "entrypoints": {
+    "main_vs": {
+      "stage": "vertex",
+
+      "vertex_state": {
+        "input_layout": "$auto",
+
+        "generic_input": {
+          "dynamic_compression": true,
+          "position": true,
+          "skinned": true,
+          "normal": true,
+          "tangents": false,
+          "color": true,
+          "texture_coords": true
+        }
+      }
+    },
+
+    "main_ps": {
+      "stage": "pixel"
+    },
+
+    "oit_main_ps": {
+      "stage": "pixel"
+    }
+  },
+
+  "rendertypes": { "hologram": {} },
+
+  "states": {
+    "unlit transparent": {
+      "type": "transparent",
+
+      "vertex_shader": {
+        "entrypoint": "main_vs"
+      },
+
+      "pixel_shader": {
+        "entrypoint": "main_ps"
+      },
+
+      "pixel_oit_shader": {
+        "entrypoint": "oit_main_ps"
+      }
+    }
+  }
+}

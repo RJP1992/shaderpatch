@@ -1,0 +1,20 @@
+Overridden RenderType: normal
+Constant Buffer Name: skybox_blend
+
+Material Options:
+   Unlit: yes
+
+Properties:
+   BlendBottom:
+      Type: float
+      Default: 0.0
+      Range: [-2048.0, 2048.0]
+
+   BlendTop:
+      Type: float
+      Default: 100.0
+      Range: [-2048.0, 2048.0]
+
+Resource Properties:
+   TextureA:
+   TextureB:

@@ -234,6 +234,8 @@ public:
 
    void set_informal_projection_matrix(const glm::mat4 matrix) noexcept;
 
+   void set_informal_view_matrix(const glm::mat4& matrix) noexcept;
+
    void draw(const D3D11_PRIMITIVE_TOPOLOGY topology, const UINT vertex_count,
              const UINT start_vertex) noexcept;
 
@@ -575,7 +577,9 @@ private:
    std::vector<std::unique_ptr<material::Material>> _materials;
 
    glm::mat4 _informal_projection_matrix;
+   glm::mat4 _informal_view_matrix;
    glm::mat4 _postprocess_projection_matrix;
+   glm::mat4 _postprocess_view_matrix;
 
    const HWND _window;
 

@@ -25,6 +25,10 @@ enum class SSAO_mode { ambient, global };
 
 enum class SSAO_method { assao };
 
+enum class Fog_blend_mode { normal, tinted, atmospheric, additive, screen };
+
+enum class Fog_height_mode { above_only, below_only, both };
+
 struct Bloom_params {
    bool enabled = true;
    Bloom_mode mode = Bloom_mode::blended;
@@ -135,6 +139,31 @@ struct DOF_params {
    float f_stop = 16.0f;
 };
 
+struct Fog_params {
+    bool enabled = false;
+
+    glm::vec3 color = { 0.7f, 0.8f, 0.9f };
+    float density = 1.0f;
+
+    float start_distance = 50.0f;
+    float end_distance = 500.0f;
+
+    bool height_fog_enabled = false;
+    float height_falloff = 0.01f;
+    float height_offset = 0.0f;
+    float height_min = 0.0f;      // Bottom of fog band
+    float height_max = 100.0f;    // Top of fog band
+
+    Fog_height_mode height_mode = Fog_height_mode::above_only;
+    Fog_blend_mode blend_mode = Fog_blend_mode::normal;
+
+    // Noise
+    bool noise_enabled = false;
+    float noise_scale = 100.0f;
+    float noise_intensity = 0.3f;
+    float noise_speed = 0.1f;
+};
+
 inline auto to_string(const Tonemapper tonemapper) noexcept
 {
    using namespace std::literals;
@@ -238,6 +267,69 @@ inline auto ssao_type_from_string(const std::string_view string) noexcept
    return SSAO_method::assao;
 }
 
+inline auto to_string(const Fog_blend_mode mode) noexcept
+{
+    using namespace std::literals;
+
+    switch (mode) {
+    case Fog_blend_mode::normal:
+        return "Normal"s;
+    case Fog_blend_mode::tinted:
+        return "Tinted"s;
+    case Fog_blend_mode::atmospheric:
+        return "Atmospheric"s;
+    case Fog_blend_mode::additive:
+        return "Additive"s;
+    case Fog_blend_mode::screen:
+        return "Screen"s;
+    }
+
+    std::terminate();
+}
+
+inline auto fog_blend_mode_from_string(const std::string_view string) noexcept
+{
+    if (string == to_string(Fog_blend_mode::normal))
+        return Fog_blend_mode::normal;
+    else if (string == to_string(Fog_blend_mode::tinted))
+        return Fog_blend_mode::tinted;
+    else if (string == to_string(Fog_blend_mode::atmospheric))
+        return Fog_blend_mode::atmospheric;
+    else if (string == to_string(Fog_blend_mode::additive))
+        return Fog_blend_mode::additive;
+    else if (string == to_string(Fog_blend_mode::screen))
+        return Fog_blend_mode::screen;
+
+    return Fog_blend_mode::normal;
+}
+
+inline auto to_string(const Fog_height_mode mode) noexcept
+{
+    using namespace std::literals;
+
+    switch (mode) {
+    case Fog_height_mode::above_only:
+        return "Above Only"s;
+    case Fog_height_mode::below_only:
+        return "Below Only"s;
+    case Fog_height_mode::both:
+        return "Both"s;
+    }
+
+    std::terminate();
+}
+
+inline auto fog_height_mode_from_string(const std::string_view string) noexcept
+{
+    if (string == to_string(Fog_height_mode::above_only))
+        return Fog_height_mode::above_only;
+    else if (string == to_string(Fog_height_mode::below_only))
+        return Fog_height_mode::below_only;
+    else if (string == to_string(Fog_height_mode::both))
+        return Fog_height_mode::both;
+
+    return Fog_height_mode::above_only;
+}
 }
 
 namespace YAML {
@@ -698,6 +790,61 @@ struct convert<sp::effects::DOF_params> {
 
       return true;
    }
+};
+
+template<>
+struct convert<sp::effects::Fog_params> {
+    static Node encode(const sp::effects::Fog_params& params)
+    {
+        using namespace std::literals;
+
+        YAML::Node node;
+
+        node["Enable"s] = params.enabled;
+        node["Color"s] = params.color;
+        node["Density"s] = params.density;
+        node["StartDistance"s] = params.start_distance;
+        node["EndDistance"s] = params.end_distance;
+        node["HeightFogEnable"s] = params.height_fog_enabled;
+        node["HeightFalloff"s] = params.height_falloff;
+        node["HeightMin"s] = params.height_min;
+        node["HeightMax"s] = params.height_max;
+        node["HeightMode"s] = sp::effects::to_string(params.height_mode);
+        node["BlendMode"s] = sp::effects::to_string(params.blend_mode);
+        node["NoiseEnable"s] = params.noise_enabled;
+        node["NoiseScale"s] = params.noise_scale;
+        node["NoiseIntensity"s] = params.noise_intensity;
+        node["NoiseSpeed"s] = params.noise_speed;
+
+        return node;
+    }
+
+    static bool decode(const Node& node, sp::effects::Fog_params& params)
+    {
+        using namespace std::literals;
+
+        params = sp::effects::Fog_params{};
+
+        params.enabled = node["Enable"s].as<bool>(params.enabled);
+        params.color = node["Color"s].as<glm::vec3>(params.color);
+        params.density = node["Density"s].as<float>(params.density);
+        params.start_distance = node["StartDistance"s].as<float>(params.start_distance);
+        params.end_distance = node["EndDistance"s].as<float>(params.end_distance);
+        params.height_fog_enabled = node["HeightFogEnable"s].as<bool>(params.height_fog_enabled);
+        params.height_falloff = node["HeightFalloff"s].as<float>(params.height_falloff);
+        params.height_min = node["HeightMin"s].as<float>(params.height_min);
+        params.height_max = node["HeightMax"s].as<float>(params.height_max);
+        params.height_mode = sp::effects::fog_height_mode_from_string(
+            node["HeightMode"s].as<std::string>(sp::effects::to_string(params.height_mode)));
+        params.blend_mode = sp::effects::fog_blend_mode_from_string(
+            node["BlendMode"s].as<std::string>(sp::effects::to_string(params.blend_mode)));
+        params.noise_enabled = node["NoiseEnable"s].as<bool>(params.noise_enabled);
+        params.noise_scale = node["NoiseScale"s].as<float>(params.noise_scale);
+        params.noise_intensity = node["NoiseIntensity"s].as<float>(params.noise_intensity);
+        params.noise_speed = node["NoiseSpeed"s].as<float>(params.noise_speed);
+
+        return true;
+    }
 };
 
 }

@@ -1,0 +1,164 @@
+Overridden RenderType: normal
+Constant Buffer Name: normal_bf3_ambient
+
+Material Options:
+   Unlit: no
+
+Properties:
+   DiffuseColor:
+      Type: vec3
+      Default: [1.0, 1.0, 1.0]
+      Range: [0.0, 1.0]
+     
+   GlossMapWeight:
+      Type: float
+      Default: 1.0
+      Range: [0.0, 1.0]
+
+   SpecularColor:
+      Type: vec3
+      Default: [1.0, 1.0, 1.0]
+      Range: [0.0, 1.0]
+
+   SpecularExponent:
+      Type: float
+      Default: 64.0
+      Range: [1.0, 2048.0]
+
+   UseSpecularMap:
+      Type: bool
+      Default: false
+ 
+   UseAOMap:
+      Type: bool
+      Default: false
+
+   UseEmissiveMap:
+      Type: bool
+      Default: false
+
+   EmissiveTextureScale:
+      Type: float
+      Default: 1.0
+      Range: [0.0, 2048.0]
+
+   EmissivePower:
+      Type: float
+      Default: 0.0
+      Range: [-2048.0, 2048.0]
+      
+   UseEnvMap:
+      Type: bool
+      Default: false
+
+   EnvMapVisibility:
+      Type: float
+      Default: 1.0
+      Range: [0.0001, 1.0]
+
+   IsDynamic:
+      Type: bool
+      Default: false
+
+   DynamicNormalSign:
+      Type: float
+      Default: 1.0
+      Range: [-1.0, 1.0]
+
+   UseOutlineLight:
+      Type: bool
+      Default: false
+
+   OutlineLightWidth:
+      Type: float
+      Default: 0.25
+      Range: [0.0, 1.0]
+
+   OutlineLightFade:
+      Type: float
+      Default: 0.5
+      Range: [0.0, 1.0]
+
+   OutlineLightColor:
+      Type: vec3
+      Default: [1.0, 1.0, 1.0]
+      Range: [0.0, 1.0]
+
+   UseParallaxMapping:
+      Type: bool
+      Default: false
+
+   HeightScale:
+      Type: float
+      Default: -0.025
+      Range: [-1.0, 1.0]
+
+   ParallaxScaleX:
+      Type: float
+      Default: 1.0
+      Range: [-5.0, 5.0]
+
+   UseTerrainFade:
+      Type: bool
+      Default: false
+
+   HorizonColor:
+      Type: vec3
+      Default: [0.6, 0.7, 0.8]
+      Range: [0.0, 1.0]
+
+   FadeStart:
+      Type: float
+      Default: 200.0
+      Range: [0.0, 20000.0]
+
+   FadeEnd:
+      Type: float
+      Default: 500.0
+      Range: [0.0, 20000.0]
+
+   FadePower:
+      Type: float
+      Default: 1.0
+      Range: [0.1, 5.0]
+
+   HorizonDesaturation:
+      Type: float
+      Default: 0.5
+      Range: [0.0, 1.0]
+
+   OpacityCutoff:
+      Type: float
+      Default: 9000.0
+      Range: [0.0, 20000.0]
+
+   HorizonIntensity:
+      Type: float
+      Default: 1.0
+      Range: [0.0, 5.0]
+
+   UseAtmosphereMap:
+      Type: bool
+      Default: false
+
+   AtmosphereFlipX:
+      Type: bool
+      Default: false
+
+   AtmosphereFlipY:
+      Type: bool
+      Default: false
+
+   AtmosphereFlipZ:
+      Type: bool
+      Default: false
+
+Resource Properties:
+   DiffuseMap:
+   SpecularMap:
+   NormalMap: 
+   AOMap:
+   EmissiveMap:
+   EnvMap:
+   HeightMap:
+   AtmosphereMap:

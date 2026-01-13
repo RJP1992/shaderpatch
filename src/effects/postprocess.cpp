@@ -270,7 +270,9 @@ public:
            shaders.pixel("postprocess_dof"sv).entrypoint("compose_upsample_4x_ps"sv)},
         _dof_compose_upsample_4x_fast_ps{
            shaders.pixel("postprocess_dof"sv).entrypoint("compose_upsample_4x_fast_ps"sv)},
-        _color_grading_lut_baker{_device, shaders}
+        _color_grading_lut_baker{_device, shaders},
+        _fog_ps{ 
+           shaders.pixel("postprocess_fog"sv).entrypoint("fog_main_ps"sv)}
    {
       bloom_params(Bloom_params{});
       vignette_params(Vignette_params{});
@@ -354,6 +356,15 @@ public:
       return _dof_params;
    }
 
+   void fog_params(const Fog_params& params) noexcept
+   {
+       _fog_params = params;
+   }
+
+   auto fog_params() const noexcept -> const Fog_params&
+   {
+       return _fog_params;
+   }
    void color_grading_regions(const Color_grading_regions& colorgrading_regions) noexcept
    {
       _color_grading_regions_blender.regions(colorgrading_regions);
@@ -385,6 +396,7 @@ public:
       const bool cas_enabled = ffx_cas.params().enabled;
       const bool cmaa2_enabled = options.apply_cmaa2;
       const bool dof_enabled = _dof_params.enabled && user_config.effects.dof;
+      const bool fog_enabled = _fog_params.enabled && user_config.effects.fog;
       const bool output_luma = cmaa2_enabled;
       const bool compute_stages_active = cas_enabled || cmaa2_enabled;
 
@@ -413,6 +425,17 @@ public:
          work_texture = do_depth_of_field(dc, rt_allocator, input.depth_srv,
                                           input.projection_from_view,
                                           work_texture, profiler);
+      }
+
+      if (fog_enabled) {
+          work_texture = do_fog(dc, rt_allocator, input.depth_srv,
+              input.depth_srv_far,
+              input.projection_from_view,
+              input.view_matrix,
+              camera_position,
+              textures,
+              input.time,
+              work_texture, profiler);
       }
 
       std::optional luma_target =
@@ -783,6 +806,82 @@ private:
       do_pass(dc, srvs, *compose_target.rtv());
 
       return std::move(compose_target);
+   }
+
+   auto do_fog(ID3D11DeviceContext1& dc, Rendertarget_allocator& allocator,
+       ID3D11ShaderResourceView& depth_srv,
+       ID3D11ShaderResourceView& depth_srv_far,
+       const glm::mat4& projection_from_view,
+       const glm::mat4& view_matrix,
+       const glm::vec3& camera_position,
+       const core::Shader_resource_database& textures,
+       float time,
+       const Work_texture& input, Profiler& profiler) noexcept
+       -> Work_texture
+   {
+       Profile profile{ profiler, dc, "Postprocessing - Distance Fog" };
+
+       // Compute inverse view-projection matrix
+       const glm::mat4 view_proj = projection_from_view * view_matrix;
+       const glm::mat4 inv_view_proj = glm::inverse(view_proj);
+
+       // Update fog constant buffer
+       Fog_constants constants;
+       constants.inv_view_proj = inv_view_proj;
+       constants.color = _fog_params.color;
+       constants.density = _fog_params.density;
+       constants.camera_position = camera_position;
+       constants.start = _fog_params.start_distance;
+       constants.end = _fog_params.end_distance;
+       constants.height_falloff = _fog_params.height_fog_enabled ? _fog_params.height_falloff : 0.0f;
+       constants.height_min = _fog_params.height_min;
+       constants.height_max = _fog_params.height_max;
+       constants.blend_mode = static_cast<int>(_fog_params.blend_mode);
+       constants.height_mode = static_cast<int>(_fog_params.height_mode);
+       constants.noise_scale = _fog_params.noise_enabled ? _fog_params.noise_scale : 0.0f;
+       constants.noise_intensity = _fog_params.noise_intensity;
+       constants.time = time * _fog_params.noise_speed;
+
+       core::update_dynamic_buffer(dc, *_fog_constant_buffer, constants);
+
+       // Allocate output render target
+       auto output = allocator.allocate(
+           { .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
+            .width = input.width(),
+            .height = input.height(),
+            .bind_flags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET });
+
+       // Bind fog shader
+       dc.PSSetShader(_fog_ps.get(), nullptr, 0);
+
+       // Unbind render targets first to avoid SRV/RTV conflict
+       dc.OMSetRenderTargets(0, nullptr, nullptr);
+
+       // Bind textures: scene, depth_near, depth_far, noise
+       std::array<ID3D11ShaderResourceView*, 4> srvs = {
+          input.srv(),
+          &depth_srv,
+          &depth_srv_far,
+          _fog_params.noise_enabled ? blue_noise_srv(textures) : nullptr
+       };
+       dc.PSSetShaderResources(0, srvs.size(), srvs.data());
+
+       auto* const cb = _fog_constant_buffer.get();
+       dc.PSSetConstantBuffers(1, 1, &cb);
+
+       // Now bind output
+       auto* const rtv = output.rtv();
+       dc.OMSetRenderTargets(1, &rtv, nullptr);
+       dc.OMSetBlendState(nullptr, nullptr, 0xffffffff);
+
+       set_viewport(dc, input.width(), input.height());
+
+       dc.Draw(3, 0);
+
+       // Cleanup
+       clear_ps_srvs<4>(dc);
+
+       return Work_texture{ std::move(output) };
    }
 
    auto do_bloom_and_color_grading(
@@ -1267,6 +1366,26 @@ private:
 
    static_assert(sizeof(Depth_of_field_constants) == 48);
 
+   struct Fog_constants {
+       glm::mat4 inv_view_proj;      // 64 bytes
+       glm::vec3 color;              // 12 bytes
+       float density;                // 4 bytes
+       glm::vec3 camera_position;    // 12 bytes
+       float start;                  // 4 bytes
+       float end;                    // 4 bytes
+       float height_falloff;         // 4 bytes
+       float height_min;             // 4 bytes
+       float height_max;             // 4 bytes
+       int blend_mode;               // 4 bytes
+       int height_mode;              // 4 bytes
+       float noise_scale;            // 4 bytes
+       float noise_intensity;        // 4 bytes
+       float time;                   // 4 bytes
+       float _padding[3];            // 12 bytes (to reach 144)
+   };
+
+   static_assert(sizeof(Fog_constants) == 144);
+
    Global_constants _global_constants;
    std::array<Bloom_constants, 6> _bloom_constants;
 
@@ -1323,6 +1442,8 @@ private:
       core::create_dynamic_constant_buffer(*_device, sizeof(Bloom_constants))};
    const Com_ptr<ID3D11Buffer> _dof_constant_buffer =
       core::create_dynamic_constant_buffer(*_device, sizeof(Depth_of_field_constants));
+   const Com_ptr<ID3D11Buffer> _fog_constant_buffer =
+       core::create_dynamic_constant_buffer(*_device, sizeof(Fog_constants));
 
    shader::Group_pixel& _shaders;
 
@@ -1366,6 +1487,7 @@ private:
    const Com_ptr<ID3D11PixelShader> _dof_compose_upsample_2x_ps;
    const Com_ptr<ID3D11PixelShader> _dof_compose_upsample_4x_ps;
    const Com_ptr<ID3D11PixelShader> _dof_compose_upsample_4x_fast_ps;
+   const Com_ptr<ID3D11PixelShader> _fog_ps;
    Com_ptr<ID3D11PixelShader> _postprocess_combine_ps;
    Com_ptr<ID3D11PixelShader> _postprocess_finalize_ps;
 
@@ -1375,6 +1497,7 @@ private:
    Vignette_params _vignette_params{};
    Film_grain_params _film_grain_params{};
    DOF_params _dof_params{};
+   Fog_params _fog_params{};
 
    Hdr_state _hdr_state = Hdr_state::hdr;
 
@@ -1495,4 +1618,13 @@ void Postprocess::hdr_state(Hdr_state state) noexcept
    _impl->hdr_state(state);
 }
 
+void Postprocess::fog_params(const Fog_params& params) noexcept
+{
+    _impl->fog_params(params);
+}
+
+auto Postprocess::fog_params() const noexcept -> const Fog_params&
+{
+    return _impl->fog_params();
+}
 }

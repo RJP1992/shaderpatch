@@ -15,9 +15,9 @@
     <ProjectGuid>{77065F00-E7E4-4EDF-8C98-6EB87BC49C4D}</ProjectGuid>
     <RootNamespace>dll</RootNamespace>
     <ProjectName>shader_patch</ProjectName>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <VcpkgTriplet Condition="'$(Platform)'=='Win32'">
     </VcpkgTriplet>
+    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -148,6 +148,7 @@
       <DelayLoadDLLs>
       </DelayLoadDLLs>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
     </Link>
     <CustomBuild>
       <Outputs>a lot of shader files (hopefully)</Outputs>
@@ -159,7 +160,9 @@
       <ObjectFileOutput />
     </FxCompile>
     <PostBuildEvent>
-      <Command>copy "$(WindowsSdkDir)Redist\D3D\x86\d3dcompiler_47.dll" "$(OutputPath)"</Command>
+      <Command>copy "$(WindowsSdkDir)Redist\D3D\x86\d3dcompiler_47.dll" "$(OutputPath)"
+copy "$(WindowsSdkDir)Redist\D3D\x86\d3dcompiler_47.dll" "C:\Program Files (x86)\Steam\steamapps\common\Star Wars Battlefront II Classic\GameData\"
+copy "$(TargetPath)" "C:\Program Files (x86)\Steam\steamapps\common\Star Wars Battlefront II Classic\GameData\</Command>
     </PostBuildEvent>
     <PostBuildEvent>
       <Message>Copying D3DCompiler Redist...</Message>
@@ -218,6 +221,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4275;4251;4127;4018;4201;4189;4505;4389</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4275;4251;4127;4018;4201;4189;4505;4389</DisableSpecificWarnings>
     </ClCompile>
+    <ClCompile Include="src\effects\clouds.cpp" />
     <ClCompile Include="src\effects\cmaa2.cpp" />
     <ClCompile Include="src\effects\color_grading_lut_baker.cpp" />
     <ClCompile Include="src\effects\color_grading_regions_blender.cpp" />
@@ -230,6 +234,7 @@
     <ClCompile Include="src\file_hooks.cpp" />
     <ClCompile Include="src\freetype_helpers.cpp" />
     <ClCompile Include="src\game_support\font_declarations.cpp" />
+    <ClCompile Include="src\game_support\game_memory.cpp" />
     <ClCompile Include="src\game_support\memory_hacks.cpp" />
     <ClCompile Include="src\game_support\munged_shader_declarations.cpp" />
     <ClCompile Include="src\imgui\imgui.cpp">
@@ -337,6 +342,8 @@
     <ClInclude Include="src\direct3d\vertex_shader.hpp" />
     <ClInclude Include="src\direct3d\texture3d_resource.hpp" />
     <ClInclude Include="src\effects\assao\ASSAO.h" />
+    <ClInclude Include="src\effects\clouds.hpp" />
+    <ClInclude Include="src\effects\clouds_params.hpp" />
     <ClInclude Include="src\effects\cmaa2.hpp" />
     <ClInclude Include="src\effects\color_grading_regions_blender.hpp" />
     <ClInclude Include="src\effects\color_helpers.hpp" />
@@ -380,6 +387,7 @@
     <ClInclude Include="src\game_support\fixedfunc_shader_metadata.hpp" />
     <ClInclude Include="src\game_support\font_declarations.hpp" />
     <ClInclude Include="src\game_support\font_info.hpp" />
+    <ClInclude Include="src\game_support\game_memory.hpp" />
     <ClInclude Include="src\game_support\memory_hacks.hpp" />
     <ClInclude Include="src\game_support\munged_shader_declarations.hpp" />
     <ClInclude Include="src\game_support\shader_declaration.hpp" />

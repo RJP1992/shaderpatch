@@ -2,12 +2,14 @@
 #include "shader_patch.hpp"
 #include "../bf2_log_monitor.hpp"
 #include "../effects/color_helpers.hpp"
+#include "../effects/clouds.hpp"
 #include "../game_support/memory_hacks.hpp"
 #include "../input_config.hpp"
 #include "../logger.hpp"
 #include "../material/editor.hpp"
 #include "../message_hooks.hpp"
 #include "../user_config.hpp"
+#include "../game_support/game_memory.hpp"
 #include "patch_material_io.hpp"
 #include "patch_texture_io.hpp"
 #include "screenshot.hpp"
@@ -968,11 +970,41 @@ void Shader_patch::stretch_rendertarget(const Game_rendertarget_id source,
             *((_rt_sample_count != 1 || _frame_swapped_depthstencil)
                  ? _farscene_depthstencil.srv.get()
                  : _nearscene_depthstencil.srv.get()),
+            *((_rt_sample_count != 1 || _frame_swapped_depthstencil)
+                 ? _nearscene_depthstencil.srv.get()
+                 : _farscene_depthstencil.srv.get()),
             _patch_backbuffer.format,
             _patch_backbuffer.width,
             _patch_backbuffer.height,
             _patch_backbuffer.sample_count,
-            _postprocess_projection_matrix};
+            _postprocess_projection_matrix,
+            _postprocess_view_matrix,
+            _cb_scene.time};
+      
+         // ADD CLOUDS HERE - right after postprocess_input, before postprocess.apply
+         if (_effects.clouds.params().enabled && user_config.effects.clouds) {
+             glm::vec3 sun_dir = glm::normalize(glm::vec3(_cb_draw.light_directional_0_dir));
+
+             if (glm::length(sun_dir) < 0.001f) {
+                 sun_dir = glm::normalize(glm::vec3(0.5f, 0.8f, 0.3f));
+             }
+
+             const effects::Clouds_input clouds_input{
+                *_nearscene_depthstencil.srv,
+                _patch_backbuffer.width,
+                _patch_backbuffer.height,
+                _postprocess_view_matrix,
+                _postprocess_projection_matrix,
+                glm::vec3(_cb_draw_ps.ps_view_positionWS),
+                sun_dir,
+                _cb_scene.time
+             };
+
+             _effects.clouds.render(*_device_context,
+                 *_patch_backbuffer.rtv,
+                 clouds_input,
+                 _effects.profiler);
+         }
 
          _effects.postprocess.apply(*_device_context, _rendertarget_allocator,
                                     _effects.profiler, _shader_resource_database,
@@ -1375,6 +1407,11 @@ void Shader_patch::set_informal_projection_matrix(const glm::mat4 matrix) noexce
    _informal_projection_matrix = matrix;
 }
 
+void Shader_patch::set_informal_view_matrix(const glm::mat4& matrix) noexcept
+{
+    _informal_view_matrix = matrix;
+}
+
 void Shader_patch::draw(const D3D11_PRIMITIVE_TOPOLOGY topology,
                         const UINT vertex_count, const UINT start_vertex) noexcept
 {
@@ -1668,7 +1705,7 @@ void Shader_patch::game_rendertype_changed() noexcept
             _om_targets_dirty = true;
          }
 
-         break;
+         break; 
       }
    }
    else if (_shader_rendertype == Rendertype::hdr && !_effects_active &&
@@ -1692,6 +1729,7 @@ void Shader_patch::game_rendertype_changed() noexcept
       _frame_had_skyfog = true;
 
       _postprocess_projection_matrix = _informal_projection_matrix;
+      _postprocess_view_matrix = _informal_view_matrix;
 
       if (use_depth_refraction_mask(_refraction_quality)) {
          resolve_msaa_depthstencil<true>();
@@ -2079,26 +2117,39 @@ void Shader_patch::update_imgui() noexcept
    _om_targets_dirty = true;
 
    if (_imgui_enabled) {
-      ImGui::ShowDemoWindow();
-      user_config.show_imgui();
-      _effects.show_imgui(_window);
+       ImGui::ShowDemoWindow();
+       user_config.show_imgui();
+       _effects.show_imgui(_window);
+       material::show_editor(_material_factory, _materials);
+       if (_bf2_log_monitor) _bf2_log_monitor->show_imgui(true);
 
-      material::show_editor(_material_factory, _materials);
+       // Dev Tools Window
+       ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
+       if (ImGui::Begin("Dev Tools")) {
+           ImGui::Checkbox("Pixel Inspector", &_pixel_inspector.enabled);
+           if (_pixel_inspector.enabled) {
+               _pixel_inspector.show(*_device_context, _swapchain, _window);
+           }
 
-      if (_bf2_log_monitor) _bf2_log_monitor->show_imgui(true);
+           ImGui::SeparatorText("Projection Range");
 
-      // Dev Tools Window
-      ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
+           const game_support::Game_memory& memory = game_support::get_game_memory();
 
-      if (ImGui::Begin("Dev Tools")) {
-         ImGui::Checkbox("Pixel Inspector", &_pixel_inspector.enabled);
+           if (memory.projection_vector_z && memory.projection_vector_z_neg) {
+               float proj_z = *memory.projection_vector_z;
 
-         if (_pixel_inspector.enabled) {
-            _pixel_inspector.show(*_device_context, _swapchain, _window);
-         }
-      }
+               if (ImGui::DragFloat("Projection Far Plane", &proj_z, 100.0f, 10000.0f, 20000.0f, "%.0f")) {
+                   *memory.projection_vector_z = proj_z;
+                   *memory.projection_vector_z_neg = -proj_z;
+               }
 
-      ImGui::End();
+               ImGui::Text("Current Z: %.1f / %.1f", *memory.projection_vector_z, *memory.projection_vector_z_neg);
+           }
+           else {
+               ImGui::TextDisabled("Projection controls not available for this game version");
+           }
+       }
+       ImGui::End();
    }
 
    if (_imgui_enabled) {

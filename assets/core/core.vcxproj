@@ -173,6 +173,7 @@
     <None Include="definitions\patch\adaptive_oit_resolve.json" />
     <None Include="definitions\patch\basic_unlit.json" />
     <None Include="definitions\patch\bloom_alt.json" />
+    <None Include="definitions\patch\cloud_layer.json" />
     <None Include="definitions\patch\cmaa2.json" />
     <None Include="definitions\patch\color_grading_lut_baker.json" />
     <None Include="definitions\patch\depth_msaa_resolve.json" />
@@ -181,6 +182,8 @@
     <None Include="definitions\patch\late_backbuffer_resolve.json" />
     <None Include="definitions\patch\mask_nan.json" />
     <None Include="definitions\patch\normal_bf3.json" />
+    <None Include="definitions\patch\normal_bf3_ambient.json" />
+    <None Include="definitions\patch\normal_bf3_character.json" />
     <None Include="definitions\patch\normal_ext_terrain.json" />
     <None Include="definitions\patch\particle_ext.json" />
     <None Include="definitions\patch\pbr_terrain.json" />
@@ -190,6 +193,7 @@
     <None Include="definitions\patch\scene_blur.json" />
     <None Include="definitions\patch\scope_blur.json" />
     <None Include="definitions\patch\skybox.json" />
+    <None Include="definitions\patch\skybox_blend.json" />
     <None Include="definitions\patch\static_water.json" />
     <None Include="definitions\patch\text.json" />
     <CustomBuild Include="build_lvls.ps1">
@@ -553,6 +557,24 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="src\normal_bf3.fx">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\normal_bf3_ambient.fx">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\normal_bf3_character.fx">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\cloud_layer.fx">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\skybox_blend.fx">
       <FileType>Document</FileType>
     </None>
   </ItemGroup>

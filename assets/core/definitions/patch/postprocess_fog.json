@@ -1,0 +1,14 @@
+{
+  "group_name": "postprocess_fog",
+  "source_name": "postprocess_fog.fx",
+
+  "entrypoints": {
+    "fog_main_ps": {
+      "stage": "pixel"
+    }
+  },
+
+  "rendertypes": {},
+
+  "states": {}
+}

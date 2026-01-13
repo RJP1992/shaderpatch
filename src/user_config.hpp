@@ -59,6 +59,8 @@ struct Effects_user_config {
    SSAO_quality ssao_quality = SSAO_quality::medium;
    bool dof = true;
    DOF_quality dof_quality = DOF_quality::quality;
+   bool fog = true;
+   bool clouds = true;
 };
 
 struct User_config {

@@ -25,6 +25,7 @@ struct Postprocess_options {
 struct Postprocess_input {
    ID3D11ShaderResourceView& srv;
    ID3D11ShaderResourceView& depth_srv;
+   ID3D11ShaderResourceView& depth_srv_far;
 
    DXGI_FORMAT format;
    UINT width;
@@ -32,6 +33,8 @@ struct Postprocess_input {
    UINT sample_count;
 
    glm::mat4 projection_from_view;
+   glm::mat4 view_matrix;
+   float time;
 };
 
 struct Postprocess_output {
@@ -66,6 +69,10 @@ public:
    void dof_params(const DOF_params& params) noexcept;
 
    auto dof_params() const noexcept -> const DOF_params&;
+
+   void fog_params(const Fog_params& params) noexcept;
+
+   auto fog_params() const noexcept -> const Fog_params&;
 
    void color_grading_regions(const Color_grading_regions& colorgrading_regions) noexcept;
 
