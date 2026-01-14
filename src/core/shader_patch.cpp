@@ -2,13 +2,13 @@
 #include "shader_patch.hpp"
 #include "../bf2_log_monitor.hpp"
 #include "../effects/color_helpers.hpp"
-#include "../effects/clouds.hpp"
+#include "../effects/clouds_bf3.hpp"
+#include "../user_config.hpp"
 #include "../game_support/memory_hacks.hpp"
 #include "../input_config.hpp"
 #include "../logger.hpp"
 #include "../material/editor.hpp"
 #include "../message_hooks.hpp"
-#include "../user_config.hpp"
 #include "../game_support/game_memory.hpp"
 #include "patch_material_io.hpp"
 #include "patch_texture_io.hpp"
@@ -981,28 +981,39 @@ void Shader_patch::stretch_rendertarget(const Game_rendertarget_id source,
             _postprocess_view_matrix,
             _cb_scene.time};
       
-         // ADD CLOUDS HERE - right after postprocess_input, before postprocess.apply
-         if (_effects.clouds.params().enabled && user_config.effects.clouds) {
-             glm::vec3 sun_dir = glm::normalize(glm::vec3(_cb_draw.light_directional_0_dir));
+         if (_effects.clouds_bf3.get_params().enabled && user_config.effects.clouds) {
+             glm::vec3 sun_dir = glm::vec3(_cb_draw.light_directional_0_dir);
+             glm::vec3 sun_color = glm::vec3(_cb_draw.light_directional_0_color);
 
-             if (glm::length(sun_dir) < 0.001f) {
-                 sun_dir = glm::normalize(glm::vec3(0.5f, 0.8f, 0.3f));
-             }
-
-             const effects::Clouds_input clouds_input{
-                *_nearscene_depthstencil.srv,
+             const effects::Clouds_bf3_input clouds_input{
                 _patch_backbuffer.width,
                 _patch_backbuffer.height,
                 _postprocess_view_matrix,
                 _postprocess_projection_matrix,
                 glm::vec3(_cb_draw_ps.ps_view_positionWS),
                 sun_dir,
-                _cb_scene.time
+                sun_color,
+                _cb_scene.time,
+                _frame_swapped_depthstencil ? _nearscene_depthstencil.srv.get() : nullptr
              };
 
-             _effects.clouds.render(*_device_context,
+             std::array<ID3D11UnorderedAccessView*, 3> oit_uavs = { nullptr, nullptr, nullptr };
+             if (_oit_active) {
+                 oit_uavs = _oit_provider.uavs();
+             }
+
+             auto& depth_srv_for_clouds = *((_frame_swapped_depthstencil)
+                 ? _farscene_depthstencil.srv.get()
+                 : _nearscene_depthstencil.srv.get());
+
+             _effects.clouds_bf3.render(*_device_context,
+                 _rendertarget_allocator,
                  *_patch_backbuffer.rtv,
+                 *_nearscene_depthstencil.dsv,
+                 depth_srv_for_clouds,
+                 _shader_resource_database,
                  clouds_input,
+                 oit_uavs,
                  _effects.profiler);
          }
 

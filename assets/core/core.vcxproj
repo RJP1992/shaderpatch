@@ -173,6 +173,7 @@
     <None Include="definitions\patch\adaptive_oit_resolve.json" />
     <None Include="definitions\patch\basic_unlit.json" />
     <None Include="definitions\patch\bloom_alt.json" />
+    <None Include="definitions\patch\clouds_bf3.json" />
     <None Include="definitions\patch\cloud_layer.json" />
     <None Include="definitions\patch\cmaa2.json" />
     <None Include="definitions\patch\color_grading_lut_baker.json" />
@@ -189,6 +190,7 @@
     <None Include="definitions\patch\pbr_terrain.json" />
     <None Include="definitions\patch\pixel_inspector.json" />
     <None Include="definitions\patch\postprocess_bloom.json" />
+    <None Include="definitions\patch\postprocess_fog.json" />
     <None Include="definitions\patch\postprocess_msaa_resolve.json" />
     <None Include="definitions\patch\scene_blur.json" />
     <None Include="definitions\patch\scope_blur.json" />
@@ -255,6 +257,7 @@
     <None Include="src\lighting_ibl.hlsl" />
     <None Include="src\lighting_occlusion.hlsl" />
     <None Include="src\lighting_pbr.hlsl" />
+    <None Include="src\lights.hlsli" />
     <None Include="src\scene_blur.fx" />
     <None Include="src\scope_blur_common.hlsl" />
     <None Include="textures.req" />
@@ -577,6 +580,19 @@
     <None Include="src\skybox_blend.fx">
       <FileType>Document</FileType>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\clouds_bf3.fx">
+      <FileType>Document</FileType>
+    </None>
+    <FxCompile Include="src\hologram.fx" />
+    <FxCompile Include="src\lighting_blinnphong_ext.hlsl" />
+    <FxCompile Include="src\normal_bf3_ambient_common.hlsl" />
+    <FxCompile Include="src\normal_bf3_character_common.hlsl" />
+    <FxCompile Include="src\normal_bf3_common.hlsl" />
+    <FxCompile Include="src\particle_bf3.fx" />
+    <FxCompile Include="src\postprocess_dof.fx" />
+    <FxCompile Include="src\postprocess_fog.fx" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

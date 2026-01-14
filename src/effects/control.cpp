@@ -8,6 +8,7 @@
 #include "postprocess_params.hpp"
 #include "tonemappers.hpp"
 #include "volume_resource.hpp"
+#include "clouds_bf3_params.hpp"
 
 #include <fstream>
 #include <functional>
@@ -42,7 +43,7 @@ DOF_params show_dof_imgui(DOF_params params) noexcept;
 
 Fog_params show_fog_imgui(Fog_params params) noexcept;
 
-Cloud_params show_clouds_imgui(Cloud_params params) noexcept;
+Cloud_params_bf3 show_clouds_bf3_imgui(Cloud_params_bf3 params) noexcept;
 
 SSAO_params show_ssao_imgui(SSAO_params params) noexcept;
 
@@ -57,7 +58,7 @@ Control::Control(Com_ptr<ID3D11Device5> device, shader::Database& shaders) noexc
      ssao{device, shaders},
      ffx_cas{device, shaders},
      mask_nan{device, shaders},
-     clouds{ device, shaders },
+     clouds_bf3{ device, shaders},
      profiler{device}
 {
    if (user_config.graphics.enable_user_effects_config) {
@@ -222,8 +223,8 @@ void Control::show_imgui(HWND game_window) noexcept
          ImGui::EndTabItem();
       }
 
-      if (ImGui::BeginTabItem("Clouds")) {
-          clouds.params(show_clouds_imgui(clouds.params()));
+      if (ImGui::BeginTabItem("Clouds BF3")) {
+          clouds_bf3.set_params(show_clouds_bf3_imgui(clouds_bf3.get_params()));
           ImGui::EndTabItem();
       }
 
@@ -250,7 +251,6 @@ void Control::read_config(YAML::Node config)
       config["FilmGrain"s].as<Film_grain_params>(Film_grain_params{}));
    postprocess.dof_params(config["DOF"s].as<DOF_params>(DOF_params{}));
    postprocess.fog_params(config["Fog"s].as<Fog_params>(Fog_params{}));
-   clouds.params(config["Clouds"s].as<Cloud_params>(Cloud_params{}));
    ssao.params(config["SSAO"s].as<SSAO_params>(SSAO_params{false}));
    ffx_cas.params(config["ContrastAdaptiveSharpening"s].as<FFX_cas_params>(
       FFX_cas_params{false}));
@@ -267,7 +267,6 @@ auto Control::output_params_to_yaml_string() noexcept -> std::string
    config["FilmGrain"s] = postprocess.film_grain_params();
    config["DOF"s] = postprocess.dof_params();
    config["Fog"s] = postprocess.fog_params();
-   config["Clouds"s] = clouds.params();
    config["SSAO"s] = ssao.params();
    config["ContrastAdaptiveSharpening"s] = ffx_cas.params();
 
@@ -833,7 +832,7 @@ Fog_params show_fog_imgui(Fog_params params) noexcept
     return params;
 }
 
-Cloud_params show_clouds_imgui(Cloud_params params) noexcept
+Cloud_params_bf3 show_clouds_bf3_imgui(Cloud_params_bf3 params) noexcept
 {
     ImGui::Checkbox("Enabled", &params.enabled);
 
@@ -844,128 +843,126 @@ Cloud_params show_clouds_imgui(Cloud_params params) noexcept
     ImGui::Text("Presets");
 
     if (ImGui::Button("Scattered Cumulus")) {
-        params.particles_per_volume = 25;
-        params.particle_size = 100.0f;
-        params.cloud_alpha = 0.5f;
-        params.generate_default_volumes(40, 350.0f, 2500.0f);
+        params = Cloud_params_bf3{};
+        params.enabled = true;
+        params.generate_cloud_field(30, 400.0f, 3000.0f);
     }
     ImGui::SameLine();
     if (ImGui::Button("Dense Overcast")) {
-        params.particles_per_volume = 40;
-        params.particle_size = 120.0f;
-        params.cloud_alpha = 0.7f;
-        params.generate_default_volumes(80, 280.0f, 2000.0f);
+        params = Cloud_params_bf3{};
+        params.enabled = true;
+        params.cluster_radius = 60.0f;
+        params.global_alpha = 0.9f;
+        params.generate_cloud_field(60, 300.0f, 2500.0f);
     }
 
-    if (ImGui::Button("Wispy High")) {
-        params.particles_per_volume = 15;
-        params.particle_size = 150.0f;
-        params.cloud_alpha = 0.3f;
-        params.generate_default_volumes(30, 500.0f, 3000.0f);
+    if (ImGui::Button("High Wisps")) {
+        params = Cloud_params_bf3{};
+        params.enabled = true;
+        params.particle_size_min = 80.0f;
+        params.particle_size_max = 200.0f;
+        params.global_alpha = 0.5f;
+        params.noise_erosion = 0.6f;
+        params.generate_cloud_field(25, 600.0f, 4000.0f);
     }
     ImGui::SameLine();
-    if (ImGui::Button("Low Fog")) {
-        params.particles_per_volume = 50;
-        params.particle_size = 80.0f;
-        params.cloud_alpha = 0.8f;
-        params.generate_default_volumes(60, 30.0f, 2000.0f);
+    if (ImGui::Button("Low Fog Bank")) {
+        params = Cloud_params_bf3{};
+        params.enabled = true;
+        params.particle_size_min = 40.0f;
+        params.particle_size_max = 100.0f;
+        params.global_alpha = 0.95f;
+        params.generate_cloud_field(50, 50.0f, 2000.0f);
     }
 
     // Generation
     ImGui::Separator();
     ImGui::Text("Custom Generation");
 
-    static int gen_count = 50;
-    static float gen_height = 300.0f;
-    static float gen_spread = 2000.0f;
+    static int gen_count = 40;
+    static float gen_height = 400.0f;
+    static float gen_spread = 3000.0f;
 
-    ImGui::DragInt("Volume Count", &gen_count, 1, 5, 200);
-    ImGui::DragFloat("Height", &gen_height, 10.0f, -100.0f, 1000.0f);
-    ImGui::DragFloat("Spread", &gen_spread, 50.0f, 500.0f, 10000.0f);
+    ImGui::DragInt("Volume Count", &gen_count, 1, 5, 100);
+    ImGui::DragFloat("Base Height", &gen_height, 10.0f, -100.0f, 1000.0f);
+    ImGui::DragFloat("Spread Radius", &gen_spread, 50.0f, 500.0f, 10000.0f);
 
-    if (ImGui::Button("Generate")) {
-        params.generate_default_volumes(gen_count, gen_height, gen_spread);
+    if (ImGui::Button("Generate Field")) {
+        params.generate_cloud_field(gen_count, gen_height, gen_spread);
     }
     ImGui::SameLine();
     if (ImGui::Button("Clear All")) {
         params.volumes.clear();
     }
-    ImGui::SameLine();
-    if (ImGui::Button("Rebuild Particles")) {
-        // Force rebuild by toggling a volume slightly
-        // This is a workaround - ideally we'd have a direct dirty flag
-        if (!params.volumes.empty()) {
-            params.volumes[0].density += 0.0001f;
-            params.volumes[0].density -= 0.0001f;
-        }
-    }
 
     // Particle settings
     ImGui::Separator();
-    ImGui::Text("Particles");
+    ImGui::Text("Particle Settings");
 
-    ImGui::DragInt("Per Volume", &params.particles_per_volume, 1, 5, 100);
-    ImGui::SetItemTooltip("More particles = denser clouds, higher cost");
-    ImGui::DragFloat("Size", &params.particle_size, 5.0f, 20.0f, 300.0f);
-    ImGui::DragFloat("Alpha", &params.cloud_alpha, 0.02f, 0.1f, 1.0f);
-
-    int total_particles = params.particles_per_volume * static_cast<int>(params.volumes.size());
-    ImGui::Text("Total particles: %d", total_particles);
+    ImGui::DragFloat("Size Min", &params.particle_size_min, 5.0f, 10.0f, 200.0f);
+    ImGui::DragFloat("Size Max", &params.particle_size_max, 5.0f, 20.0f, 400.0f);
+    ImGui::DragFloat("Cluster Radius", &params.cluster_radius, 5.0f, 10.0f, 150.0f);
+    ImGui::DragFloat("Global Alpha", &params.global_alpha, 0.02f, 0.1f, 1.0f);
 
     // Colors
     ImGui::Separator();
     ImGui::Text("Colors");
 
-    ImGui::ColorEdit3("Light", &params.light_color.x);
-    ImGui::ColorEdit3("Dark", &params.dark_color.x);
+    ImGui::ColorEdit3("Bright (Lit)", &params.color_bright.x);
+    ImGui::ColorEdit3("Dark (Shadow)", &params.color_dark.x);
+    ImGui::ColorEdit3("Ambient", &params.color_ambient.x);
 
-    // Animation
+    // Noise (BF3)
     ImGui::Separator();
-    ImGui::Text("Animation");
+    ImGui::Text("BF3 Noise");
 
-    ImGui::DragFloat("Wind Speed", &params.wind_speed, 0.5f, 0.0f, 20.0f);
-    ImGui::DragFloat2("Wind Dir", &params.wind_direction.x, 0.1f, -1.0f, 1.0f);
+    ImGui::DragFloat4("Octave Weights", &params.octave_weights.x, 0.05f, 0.0f, 1.0f);
+    ImGui::DragFloat("Noise Scale", &params.noise_scale, 0.0005f, 0.0001f, 0.01f, "%.4f");
+    ImGui::DragFloat("Erosion", &params.noise_erosion, 0.02f, 0.0f, 1.0f);
+    ImGui::DragFloat("Edge Sharpness", &params.noise_edge_sharpness, 0.1f, 0.5f, 5.0f);
+    ImGui::DragFloat("Animation Speed", &params.noise_animation_speed, 0.005f, 0.0f, 0.1f);
+
+    // Lighting
+    ImGui::Separator();
+    ImGui::Text("Lighting");
+
+    ImGui::DragFloat("Sun Intensity", &params.sun_intensity, 0.05f, 0.0f, 3.0f);
+    ImGui::DragFloat("Ambient Intensity", &params.ambient_intensity, 0.05f, 0.0f, 2.0f);
+    ImGui::DragFloat("Forward Scatter", &params.scatter_forward, 0.02f, 0.0f, 1.0f);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Silver lining effect when looking toward sun");
+    ImGui::DragFloat("Scatter Exponent", &params.scatter_forward_exp, 0.5f, 1.0f, 10.0f);
+    ImGui::DragFloat("Back Scatter", &params.scatter_back, 0.02f, 0.0f, 1.0f);
+    ImGui::DragFloat("Absorption", &params.absorption, 0.05f, 0.0f, 3.0f);
+    ImGui::DragFloat("Powder Effect", &params.powder_strength, 0.02f, 0.0f, 1.0f);
+    ImGui::DragFloat("Self Shadow", &params.self_shadow, 0.02f, 0.0f, 1.0f);
 
     // Fade
     ImGui::Separator();
-    ImGui::Text("Fade");
+    ImGui::Text("Distance Fade");
 
     ImGui::DragFloat("Near", &params.fade_near, 10.0f, 10.0f, 500.0f);
-    ImGui::DragFloat("Far", &params.fade_far, 100.0f, 500.0f, 20000.0f);
-    ImGui::DragFloat("Depth Cutoff", &params.depth_cutoff_distance, 5.0f, 10.0f, 200.0f);
+    ImGui::DragFloat("Far", &params.fade_far, 100.0f, 1000.0f, 20000.0f);
+    ImGui::DragFloat("Depth Softness", &params.depth_softness, 5.0f, 10.0f, 500.0f);
 
-    // Volume info
+    // Performance / Quality
     ImGui::Separator();
-    ImGui::Text("Volumes: %d", static_cast<int>(params.volumes.size()));
+    ImGui::Text("Performance");
 
-    if (ImGui::Button("Add Volume")) {
-        Cloud_volume vol;
-        vol.position = glm::vec3(0.0f, 300.0f, 0.0f);
-        vol.radius = 100.0f;
-        vol.scale = glm::vec3(1.0f, 0.3f, 1.0f);
-        vol.density = 1.0f;
-        params.volumes.push_back(vol);
-    }
+    ImGui::SliderFloat("Resolution Scale", &params.resolution_scale, 0.125f, 1.0f, "%.3f");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("0.25 = 1/4 res (fast), 0.5 = 1/2 res, 1.0 = full res (slow)");
+    ImGui::DragFloat("Upsample Sharpness", &params.upsample_sharpness, 0.01f, 0.01f, 1.0f);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Higher = sharper edges when upsampling (can cause artifacts)");
 
-    if (params.volumes.size() <= 10 && params.volumes.size() > 0) {
-        if (ImGui::TreeNode("Volume List")) {
-            int to_remove = -1;
-            for (int i = 0; i < static_cast<int>(params.volumes.size()); ++i) {
-                ImGui::PushID(i);
-                if (ImGui::TreeNode("Vol", "[%d]", i)) {
-                    ImGui::DragFloat3("Pos", &params.volumes[i].position.x, 10.0f);
-                    ImGui::DragFloat("Radius", &params.volumes[i].radius, 5.0f, 20.0f, 300.0f);
-                    ImGui::DragFloat3("Scale", &params.volumes[i].scale.x, 0.05f, 0.1f, 2.0f);
-                    ImGui::DragFloat("Density", &params.volumes[i].density, 0.1f, 0.1f, 2.0f);
-                    if (ImGui::Button("Remove")) to_remove = i;
-                    ImGui::TreePop();
-                }
-                ImGui::PopID();
-            }
-            if (to_remove >= 0) params.volumes.erase(params.volumes.begin() + to_remove);
-            ImGui::TreePop();
-        }
+    // Info
+    ImGui::Separator();
+    int total_clusters = 0;
+    int total_particles = 0;
+    for (const auto& vol : params.volumes) {
+        total_clusters += vol.cluster_count;
+        total_particles += vol.cluster_count * vol.particles_per_cluster;
     }
+    ImGui::Text("Volumes: %d | Clusters: %d | Particles: %d",
+        static_cast<int>(params.volumes.size()), total_clusters, total_particles);
 
     return params;
 }
