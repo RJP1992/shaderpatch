@@ -273,6 +273,8 @@
     <ClCompile Include="src\material\sol_create_usertypes.cpp">
       <Filter>src\material</Filter>
     </ClCompile>
+    <ClCompile Include="src\effects\clouds.cpp" />
+    <ClCompile Include="src\effects\sky_dome.cpp" />
     <ClCompile Include="src\effects\mask_nan.cpp" />
     <ClCompile Include="src\core\postprocessing\backbuffer_resolver.cpp" />
     <ClCompile Include="src\core\tools\pixel_inspector.cpp" />
@@ -285,9 +287,6 @@
     <ClCompile Include="src\imgui\imgui_tables.cpp" />
     <ClCompile Include="src\game_support\game_memory.cpp">
       <Filter>src\game_support</Filter>
-    </ClCompile>
-    <ClCompile Include="src\effects\clouds_bf3.cpp">
-      <Filter>src\effects</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -708,6 +707,8 @@
     <ClInclude Include="src\material\material_type.hpp">
       <Filter>src\material</Filter>
     </ClInclude>
+    <ClInclude Include="src\effects\clouds.hpp" />
+    <ClInclude Include="src\effects\sky_dome.hpp" />
     <ClInclude Include="src\effects\mask_nan.hpp" />
     <ClInclude Include="src\core\postprocessing\backbuffer_resolver.hpp" />
     <ClInclude Include="src\core\normalized_rect.hpp" />
@@ -719,12 +720,6 @@
     <ClInclude Include="src\message_hooks.hpp" />
     <ClInclude Include="src\game_support\game_memory.hpp">
       <Filter>src\game_support</Filter>
-    </ClInclude>
-    <ClInclude Include="src\effects\clouds_bf3.hpp">
-      <Filter>src\effects</Filter>
-    </ClInclude>
-    <ClInclude Include="src\effects\clouds_bf3_params.hpp">
-      <Filter>src\effects</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

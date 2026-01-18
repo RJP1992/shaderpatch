@@ -1,12 +1,16 @@
 #pragma once
 
+#include "../effects/clouds.hpp"
 #include "../effects/cmaa2.hpp"
+#include "../effects/cubemap_debug.hpp"
+#include "../effects/debug_stencil.hpp"
 #include "../effects/ffx_cas.hpp"
 #include "../effects/mask_nan.hpp"
 #include "../effects/postprocess.hpp"
 #include "../effects/profiler.hpp"
+#include "../effects/sky_dome.hpp"
+#include "../effects/skybox_override.hpp"
 #include "../effects/ssao.hpp"
-#include "../effects/clouds_bf3.hpp"
 #include "com_ptr.hpp"
 
 #include <filesystem>
@@ -71,8 +75,16 @@ namespace sp::effects {
         effects::SSAO ssao;
         effects::FFX_cas ffx_cas;
         effects::Mask_nan mask_nan;
+        effects::Clouds clouds;
+        effects::Cubemap_debug cubemap_debug;
+        effects::Debug_stencil debug_stencil;
+        effects::Sky_dome sky_dome;
+        effects::Skybox_override skybox_override;
         effects::Profiler profiler;
-        effects::Clouds_bf3 clouds_bf3;  // BF3 CLOUDS
+
+        // Shared cubemap alignment (used by fog, sky, atmosphere)
+        void cubemap_alignment(const Cubemap_alignment& alignment) noexcept { _cubemap_alignment = alignment; }
+        [[nodiscard]] auto cubemap_alignment() const noexcept -> const Cubemap_alignment& { return _cubemap_alignment; }
 
     private:
         auto output_params_to_yaml_string() noexcept -> std::string;
@@ -96,6 +108,7 @@ namespace sp::effects {
         bool _save_failure = false;
 
         Effects_control_config _config{};
+        Cubemap_alignment _cubemap_alignment{};
     };
 }
 

@@ -2,7 +2,6 @@
 #include "shader_patch.hpp"
 #include "../bf2_log_monitor.hpp"
 #include "../effects/color_helpers.hpp"
-#include "../effects/clouds_bf3.hpp"
 #include "../user_config.hpp"
 #include "../game_support/memory_hacks.hpp"
 #include "../input_config.hpp"
@@ -965,57 +964,207 @@ void Shader_patch::stretch_rendertarget(const Game_rendertarget_id source,
 
          resolve_msaa_depthstencil<false>();
 
+         // Extract sun data for fog inscattering
+         glm::vec3 sun_dir = glm::normalize(glm::vec3(_cb_draw.light_directional_0_dir));
+         glm::vec3 sun_color = glm::vec3(_cb_draw.light_directional_0_color);
+
+         // Calculate cloud fog boost based on camera position
+         float camera_y = _cb_scene.vs_view_positionWS.y;
+         float cloud_fog_boost = _effects.clouds.calculate_fog_boost(camera_y);
+
+         // Set fog boost before postprocess
+         auto fog = _effects.postprocess.fog_params();
+         fog.cloud_boost = cloud_fog_boost;
+         fog.cloud_tint = _effects.clouds.params().layers[0].color_lit;
+         _effects.postprocess.fog_params(fog);
+
+         // Render procedural clouds (visual layer) before postprocess
+         if (_effects.clouds.params().enabled) {
+            const effects::Cloud_input cloud_input{
+               _postprocess_view_matrix,
+               _postprocess_projection_matrix,
+               glm::vec3(_cb_scene.vs_view_positionWS),
+               sun_dir,
+               sun_color,
+               _cb_scene.time,
+               _patch_backbuffer.width,
+               _patch_backbuffer.height,
+               (_rt_sample_count != 1 || _frame_swapped_depthstencil)
+                  ? _farscene_depthstencil.srv.get()
+                  : _nearscene_depthstencil.srv.get(),
+               (_rt_sample_count != 1 || _frame_swapped_depthstencil)
+                  ? _nearscene_depthstencil.srv.get()
+                  : _farscene_depthstencil.srv.get()
+            };
+
+            _effects.clouds.render(*_device_context,
+               _effects.profiler,
+               _shader_resource_database,
+               *_patch_backbuffer.rtv,
+               cloud_input);
+         }
+
+         // Render sky dome atmosphere (visible from space)
+         if (_effects.sky_dome.params().enabled) {
+            const auto& sky_params = _effects.sky_dome.params();
+
+            // Get atmosphere cubemap (if specified)
+            ID3D11ShaderResourceView* atmosphere_cubemap_srv = nullptr;
+            if (!sky_params.atmosphere_texture_name.empty()) {
+               auto cubemap = _shader_resource_database.at_if(sky_params.atmosphere_texture_name);
+               if (cubemap) {
+                  atmosphere_cubemap_srv = cubemap.get();
+               }
+            }
+
+            const effects::Sky_dome_input sky_dome_input{
+               _postprocess_view_matrix,
+               _postprocess_projection_matrix,
+               glm::vec3(_cb_scene.vs_view_positionWS),
+               _patch_backbuffer.width,
+               _patch_backbuffer.height,
+               atmosphere_cubemap_srv,
+               (_rt_sample_count != 1 || _frame_swapped_depthstencil)
+                  ? _farscene_depthstencil.srv.get()
+                  : _nearscene_depthstencil.srv.get(),
+               (_rt_sample_count != 1 || _frame_swapped_depthstencil)
+                  ? _nearscene_depthstencil.srv.get()
+                  : _farscene_depthstencil.srv.get()
+            };
+
+            _effects.sky_dome.render(*_device_context,
+               _effects.profiler,
+               *_patch_backbuffer.rtv,
+               sky_dome_input);
+         }
+
+         // Render skybox override (replaces vanilla skybox with cubemap rendering)
+         if (_effects.skybox_override.params().enabled) {
+            const auto& skybox_params = _effects.skybox_override.params();
+
+            // Get ground cubemap (required - main sky)
+            ID3D11ShaderResourceView* ground_cubemap_srv = nullptr;
+            if (!skybox_params.ground_cubemap.empty()) {
+               auto cubemap = _shader_resource_database.at_if(skybox_params.ground_cubemap);
+               if (cubemap) {
+                  ground_cubemap_srv = cubemap.get();
+               }
+            }
+
+            // Get sky/atmosphere cubemap (optional - for blending)
+            ID3D11ShaderResourceView* sky_cubemap_srv = nullptr;
+            if (!skybox_params.sky_cubemap.empty()) {
+               auto cubemap = _shader_resource_database.at_if(skybox_params.sky_cubemap);
+               if (cubemap) {
+                  sky_cubemap_srv = cubemap.get();
+               }
+            }
+
+            const effects::Skybox_override_input skybox_input{
+               _postprocess_view_matrix,
+               _postprocess_projection_matrix,
+               glm::vec3(_cb_scene.vs_view_positionWS),
+               _patch_backbuffer.width,
+               _patch_backbuffer.height,
+               ground_cubemap_srv,
+               sky_cubemap_srv,
+               (_rt_sample_count != 1 || _frame_swapped_depthstencil)
+                  ? _farscene_depthstencil.srv.get()
+                  : _nearscene_depthstencil.srv.get(),
+               (_rt_sample_count != 1 || _frame_swapped_depthstencil)
+                  ? _nearscene_depthstencil.srv.get()
+                  : _farscene_depthstencil.srv.get(),
+               (_rt_sample_count != 1 || _frame_swapped_depthstencil)
+                  ? _farscene_depthstencil.stencil_srv.get()
+                  : _nearscene_depthstencil.stencil_srv.get(),
+               (_rt_sample_count != 1 || _frame_swapped_depthstencil)
+                  ? _nearscene_depthstencil.stencil_srv.get()
+                  : _farscene_depthstencil.stencil_srv.get()
+            };
+
+            _effects.skybox_override.render(*_device_context,
+               _effects.profiler,
+               *_patch_backbuffer.rtv,
+               _effects.cubemap_alignment(),
+               skybox_input);
+         }
+
+         // Render cubemap debug visualizer (if enabled)
+         if (_effects.postprocess.fog_params().cubemap_debug_enabled) {
+            const auto& fog_params = _effects.postprocess.fog_params();
+
+            // Get atmosphere cubemap (if specified)
+            ID3D11ShaderResourceView* atmosphere_cubemap_srv = nullptr;
+            if (!fog_params.atmosphere_texture_name.empty()) {
+               auto cubemap = _shader_resource_database.at_if(fog_params.atmosphere_texture_name);
+               if (cubemap) {
+                  atmosphere_cubemap_srv = cubemap.get();
+               }
+            }
+
+            const effects::Cubemap_debug_input debug_input{
+               _postprocess_view_matrix,
+               _postprocess_projection_matrix,
+               glm::vec3(_cb_scene.vs_view_positionWS),
+               _patch_backbuffer.width,
+               _patch_backbuffer.height,
+               atmosphere_cubemap_srv,
+               (_rt_sample_count != 1 || _frame_swapped_depthstencil)
+                  ? _farscene_depthstencil.srv.get()
+                  : _nearscene_depthstencil.srv.get(),
+               (_rt_sample_count != 1 || _frame_swapped_depthstencil)
+                  ? _nearscene_depthstencil.srv.get()
+                  : _farscene_depthstencil.srv.get()
+            };
+
+            _effects.cubemap_debug.render(*_device_context,
+               _effects.profiler,
+               *_patch_backbuffer.rtv,
+               debug_input,
+               fog_params);
+         }
+
+         // Debug stencil visualizer
+         if (_effects.debug_stencil.params().enabled) {
+            const bool use_near = _effects.debug_stencil.params().use_near;
+            ID3D11ShaderResourceView* depth_srv = use_near
+               ? _nearscene_depthstencil.srv.get()
+               : _farscene_depthstencil.srv.get();
+            ID3D11ShaderResourceView* stencil_srv = use_near
+               ? _nearscene_depthstencil.stencil_srv.get()
+               : _farscene_depthstencil.stencil_srv.get();
+
+            _effects.debug_stencil.render(*_device_context,
+               *_patch_backbuffer.rtv,
+               _patch_backbuffer.width,
+               _patch_backbuffer.height,
+               depth_srv,
+               stencil_srv);
+         }
+
+         // Use swap logic to get correct buffer contents
+         const bool depth_swapped = (_rt_sample_count != 1 || _frame_swapped_depthstencil);
+
          const effects::Postprocess_input postprocess_input{
             *_patch_backbuffer.srv,
-            *((_rt_sample_count != 1 || _frame_swapped_depthstencil)
+            *(depth_swapped
                  ? _farscene_depthstencil.srv.get()
                  : _nearscene_depthstencil.srv.get()),
-            *((_rt_sample_count != 1 || _frame_swapped_depthstencil)
+            *(depth_swapped
                  ? _nearscene_depthstencil.srv.get()
                  : _farscene_depthstencil.srv.get()),
             _patch_backbuffer.format,
             _patch_backbuffer.width,
             _patch_backbuffer.height,
             _patch_backbuffer.sample_count,
-            _postprocess_projection_matrix,
+            // Projection matrices must match the swapped depth buffers
+            // When swapped: depth_srv has farscene content (needs far proj), depth_srv_far has nearscene content (needs near proj)
+            (depth_swapped ? _farscene_projection_matrix : _postprocess_projection_matrix),
+            (depth_swapped ? _postprocess_projection_matrix : _farscene_projection_matrix),
             _postprocess_view_matrix,
-            _cb_scene.time};
-      
-         if (_effects.clouds_bf3.get_params().enabled && user_config.effects.clouds) {
-             glm::vec3 sun_dir = glm::vec3(_cb_draw.light_directional_0_dir);
-             glm::vec3 sun_color = glm::vec3(_cb_draw.light_directional_0_color);
-
-             const effects::Clouds_bf3_input clouds_input{
-                _patch_backbuffer.width,
-                _patch_backbuffer.height,
-                _postprocess_view_matrix,
-                _postprocess_projection_matrix,
-                glm::vec3(_cb_draw_ps.ps_view_positionWS),
-                sun_dir,
-                sun_color,
-                _cb_scene.time,
-                _frame_swapped_depthstencil ? _nearscene_depthstencil.srv.get() : nullptr
-             };
-
-             std::array<ID3D11UnorderedAccessView*, 3> oit_uavs = { nullptr, nullptr, nullptr };
-             if (_oit_active) {
-                 oit_uavs = _oit_provider.uavs();
-             }
-
-             auto& depth_srv_for_clouds = *((_frame_swapped_depthstencil)
-                 ? _farscene_depthstencil.srv.get()
-                 : _nearscene_depthstencil.srv.get());
-
-             _effects.clouds_bf3.render(*_device_context,
-                 _rendertarget_allocator,
-                 *_patch_backbuffer.rtv,
-                 *_nearscene_depthstencil.dsv,
-                 depth_srv_for_clouds,
-                 _shader_resource_database,
-                 clouds_input,
-                 oit_uavs,
-                 _effects.profiler);
-         }
+            _cb_scene.time,
+            sun_dir,
+            sun_color};
 
          _effects.postprocess.apply(*_device_context, _rendertarget_allocator,
                                     _effects.profiler, _shader_resource_database,
@@ -1213,6 +1362,12 @@ void Shader_patch::set_rendertarget(const Game_rendertarget_id rendertarget) noe
 void Shader_patch::set_depthstencil(const Game_depthstencil depthstencil) noexcept
 {
    _om_targets_dirty = true;
+
+   // When switching to farscene, mark that we need to capture the projection on first draw
+   if (depthstencil == Game_depthstencil::farscene && _current_depthstencil_id != Game_depthstencil::farscene) {
+      _need_capture_farscene_projection = true;
+   }
+
    _current_depthstencil_id = depthstencil;
 }
 
@@ -1416,6 +1571,12 @@ void Shader_patch::set_constants(const cb::Draw_ps_tag, const UINT offset,
 void Shader_patch::set_informal_projection_matrix(const glm::mat4 matrix) noexcept
 {
    _informal_projection_matrix = matrix;
+
+   // Capture far scene projection when set while in farscene mode
+   // Game sets projection AFTER switching to farscene depthstencil
+   if (_current_depthstencil_id == Game_depthstencil::farscene) {
+      _farscene_projection_matrix = matrix;
+   }
 }
 
 void Shader_patch::set_informal_view_matrix(const glm::mat4& matrix) noexcept
@@ -1430,6 +1591,12 @@ void Shader_patch::draw(const D3D11_PRIMITIVE_TOPOLOGY topology,
 
    if (_discard_draw_calls) return;
 
+   // Capture far scene projection on first draw in farscene mode
+   if (_need_capture_farscene_projection) {
+      _farscene_projection_matrix = _informal_projection_matrix;
+      _need_capture_farscene_projection = false;
+   }
+
    _device_context->Draw(vertex_count, start_vertex);
 }
 
@@ -1440,6 +1607,12 @@ void Shader_patch::draw_indexed(const D3D11_PRIMITIVE_TOPOLOGY topology,
    update_dirty_state(topology);
 
    if (_discard_draw_calls) return;
+
+   // Capture far scene projection on first draw in farscene mode
+   if (_need_capture_farscene_projection) {
+      _farscene_projection_matrix = _informal_projection_matrix;
+      _need_capture_farscene_projection = false;
+   }
 
    _device_context->DrawIndexed(index_count, start_index, base_vertex);
 }
@@ -1741,6 +1914,11 @@ void Shader_patch::game_rendertype_changed() noexcept
 
       _postprocess_projection_matrix = _informal_projection_matrix;
       _postprocess_view_matrix = _informal_view_matrix;
+
+      // Initialize far scene projection to near scene as fallback
+      // Will be updated by first draw in farscene mode if different
+      _farscene_projection_matrix = _informal_projection_matrix;
+      _need_capture_farscene_projection = false;
 
       if (use_depth_refraction_mask(_refraction_quality)) {
          resolve_msaa_depthstencil<true>();
@@ -2104,6 +2282,11 @@ void Shader_patch::update_frame_state() noexcept
    _cb_draw_ps.time_seconds = duration_cast<duration<float>>((time % 3600s)).count();
    _cb_draw_ps.supersample_alpha_test = user_config.graphics.supersample_alpha_test;
    _cb_draw_ps.ssao_enabled = _effects_active && _effects.ssao.enabled_and_ambient();
+
+   // Update altitude thresholds for environment systems (skybox_blend, fog cubemap blending)
+   const auto& fog_params = _effects.postprocess.fog_params();
+   _cb_draw_ps.altitude_blend_start = fog_params.altitude_blend_start;
+   _cb_draw_ps.altitude_blend_end = fog_params.altitude_blend_end;
 
    _refraction_farscene_texture_resolve = false;
    _refraction_nearscene_texture_resolve = false;

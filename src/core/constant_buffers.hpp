@@ -114,7 +114,9 @@ struct alignas(16) Draw_ps {
    std::uint32_t supersample_alpha_test;
    std::uint32_t ssao_enabled;
    float time_seconds;
-   std::array<uint32_t, 1> padding;
+   // Shared environment altitude thresholds (for skybox_blend and fog cubemap blending)
+   float altitude_blend_start;
+   float altitude_blend_end;
 };
 
 constexpr auto draw_ps_game_count = CB_MAX_GAME_CONSTANTS(Draw_ps, ps_view_positionWS);

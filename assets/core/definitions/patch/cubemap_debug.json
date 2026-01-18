@@ -1,0 +1,14 @@
+{
+   "group_name": "cubemap_debug",
+   "source_name": "cubemap_debug.fx",
+
+   "entrypoints": {
+      "main_ps": {
+         "stage": "pixel"
+      }
+   },
+
+   "rendertypes": {},
+
+   "states": {}
+}

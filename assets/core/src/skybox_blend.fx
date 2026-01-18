@@ -16,16 +16,15 @@ Texture2D<float4> texture_b : register(ps, t8);
 const static float4 x_texcoords_transform = custom_constants[1];
 const static float4 y_texcoords_transform = custom_constants[2];
 
-cbuffer MaterialConstants : register(MATERIAL_CB_INDEX)
-{
-   float blend_bottom;  // Below this: 100% A
-   float blend_top;     // Above this: 100% B
-};
+// Note: Material constants (blend_bottom, blend_top) are no longer used.
+// Altitude thresholds are now read from global PSDrawConstants (altitude_blend_start, altitude_blend_end)
+// which are set from the Environment tab in Shader Patch. This ensures the visual skybox
+// and fog cubemap sampling blend at exactly the same altitudes.
 
 struct Vs_output
 {
    float2 texcoords : TEXCOORDS;
-   
+
    float4 color : COLOR;
 
    float4 positionPS : SV_Position;
@@ -34,7 +33,7 @@ struct Vs_output
 Vs_output main_vs(Vertex_input input)
 {
    Vs_output output;
-   
+
    Transformer transformer = create_transformer(input);
 
    const float3 positionWS = transformer.positionWS();
@@ -55,16 +54,17 @@ float4 main_ps(Vs_output input) : SV_Target0
 
    // Get camera height
    float y = view_positionWS.y;
-   
-   // Calculate blend factor (0 = A, 1 = B)
-   float blend = saturate((y - blend_bottom) / (blend_top - blend_bottom));
+
+   // Calculate blend factor (0 = A, 1 = B) using global altitude thresholds
+   // These are shared with fog cubemap blending for synchronized transitions
+   float blend = saturate((y - altitude_blend_start) / (altitude_blend_end - altitude_blend_start + 0.001));
    blend = smoothstep(0.0, 1.0, blend);
-   
+
    // Blend textures
    float4 color = lerp(color_a, color_b, blend);
-   
+
    color *= input.color;
    color.rgb *= lighting_scale;
-   
+
    return color;
 }

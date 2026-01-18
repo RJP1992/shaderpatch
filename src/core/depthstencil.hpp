@@ -59,6 +59,22 @@ struct Depthstencil {
 
          device.CreateShaderResourceView(texture.get(), &desc, srv.clear_and_assign());
       }
+
+      // Stencil SRV for reading stencil values in shaders
+      {
+         D3D11_SHADER_RESOURCE_VIEW_DESC desc{};
+         desc.Format = DXGI_FORMAT_X24_TYPELESS_G8_UINT;
+         desc.ViewDimension = ms ? D3D11_SRV_DIMENSION_TEXTURE2DMS
+                                 : D3D11_SRV_DIMENSION_TEXTURE2D;
+         desc.Texture2D.MostDetailedMip = 0;
+         desc.Texture2D.MipLevels = 1;
+
+         HRESULT hr = device.CreateShaderResourceView(texture.get(), &desc, stencil_srv.clear_and_assign());
+         if (FAILED(hr)) {
+            // Stencil SRV creation failed - this is fine, we just won't have stencil access
+            stencil_srv = nullptr;
+         }
+      }
    }
 
    Depthstencil() = default;
@@ -77,6 +93,7 @@ struct Depthstencil {
    Com_ptr<ID3D11DepthStencilView> dsv;
    Com_ptr<ID3D11DepthStencilView> dsv_readonly;
    Com_ptr<ID3D11ShaderResourceView> srv;
+   Com_ptr<ID3D11ShaderResourceView> stencil_srv;
 
    constexpr static auto default_format = DXGI_FORMAT_R32G8X24_TYPELESS;
 };

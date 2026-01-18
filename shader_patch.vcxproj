@@ -221,8 +221,12 @@ copy "$(TargetPath)" "C:\Program Files (x86)\Steam\steamapps\common\Star Wars Ba
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4275;4251;4127;4018;4201;4189;4505;4389</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4275;4251;4127;4018;4201;4189;4505;4389</DisableSpecificWarnings>
     </ClCompile>
-    <ClCompile Include="src\effects\clouds_bf3.cpp" />
     <ClCompile Include="src\effects\cmaa2.cpp" />
+    <ClCompile Include="src\effects\clouds.cpp" />
+    <ClCompile Include="src\effects\sky_dome.cpp" />
+    <ClCompile Include="src\effects\skybox_override.cpp" />
+    <ClCompile Include="src\effects\cubemap_debug.cpp" />
+    <ClCompile Include="src\effects\debug_stencil.cpp" />
     <ClCompile Include="src\effects\color_grading_lut_baker.cpp" />
     <ClCompile Include="src\effects\color_grading_regions_blender.cpp" />
     <ClCompile Include="src\effects\control.cpp" />
@@ -342,8 +346,12 @@ copy "$(TargetPath)" "C:\Program Files (x86)\Steam\steamapps\common\Star Wars Ba
     <ClInclude Include="src\direct3d\vertex_shader.hpp" />
     <ClInclude Include="src\direct3d\texture3d_resource.hpp" />
     <ClInclude Include="src\effects\assao\ASSAO.h" />
-    <ClInclude Include="src\effects\clouds_bf3.hpp" />
-    <ClInclude Include="src\effects\clouds_bf3_params.hpp" />
+    <ClInclude Include="src\effects\clouds.hpp" />
+    <ClInclude Include="src\effects\sky_dome.hpp" />
+    <ClInclude Include="src\effects\skybox_override.hpp" />
+    <ClInclude Include="src\effects\cubemap_transform.hpp" />
+    <ClInclude Include="src\effects\cubemap_debug.hpp" />
+    <ClInclude Include="src\effects\debug_stencil.hpp" />
     <ClInclude Include="src\effects\cmaa2.hpp" />
     <ClInclude Include="src\effects\color_grading_regions_blender.hpp" />
     <ClInclude Include="src\effects\color_helpers.hpp" />

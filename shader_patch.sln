@@ -127,7 +127,4 @@ Global
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E60021EE-5B9E-4C2E-B6AB-83302F205408}
 	EndGlobalSection
-	GlobalSection(SharedMSBuildProjectFiles) = preSolution
-		submodules\imgui\imgui.vcxitems*{77065f00-e7e4-4edf-8c98-6eb87bc49c4d}*SharedItemsImports = 4
-	EndGlobalSection
 EndGlobal

@@ -1,6 +1,5 @@
 ucft
 {
-   // Patch Textures
    REQN
    {
       "sptex"
@@ -70,5 +69,14 @@ ucft
       "_SP_BUILTIN_blue_noise_rgb_62"
       "_SP_BUILTIN_blue_noise_rgb_63"
       "_SP_BUILTIN_cloud_noise"
+      "_SP_BUILTIN_cloud_atlas"
+      "_SP_BUILTIN_cloud_octaves"
+      "_SP_BUILTIN_perlin"
+      "_SP_BUILTIN_cloud_base"
+      "_SP_BUILTIN_cloud_base_n"
+      "_SP_BUILTIN_cloud_detail"
+      "_SP_BUILTIN_cloud_detail_n"
+      "_SP_BUILTIN_cloud_wispy"
+      "_SP_BUILTIN_cloud_wispy_n"
    }
 }

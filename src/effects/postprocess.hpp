@@ -33,8 +33,13 @@ struct Postprocess_input {
    UINT sample_count;
 
    glm::mat4 projection_from_view;
+   glm::mat4 projection_from_view_far;  // Far scene projection for depth linearization
    glm::mat4 view_matrix;
    float time;
+
+   // Sun/light data from the map (for fog inscattering)
+   glm::vec3 sun_direction;
+   glm::vec3 sun_color;
 };
 
 struct Postprocess_output {

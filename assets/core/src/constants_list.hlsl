@@ -81,6 +81,9 @@ cbuffer PSDrawConstants : register(b0)
    bool supersample_alpha_test;
    bool ssao_enabled;
    float time_seconds;
+   // Shared environment altitude thresholds (for skybox_blend and fog cubemap blending)
+   float altitude_blend_start;
+   float altitude_blend_end;
 }
 
 #ifdef __PIXEL_SHADER__

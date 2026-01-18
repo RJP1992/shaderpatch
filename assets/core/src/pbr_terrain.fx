@@ -55,7 +55,7 @@ Vs_output main_vs(Packed_terrain_vertex packed_vertex)
    output.texture_indices = input.texture_indices;
    output.static_lighting = input.color;
 
-   output.positionPS = mul(float4(output.positionWS, 1.0), projection_matrix); 
+   output.positionPS = mul(float4(output.positionWS, 1.0), projection_matrix);
    output.fade = calculate_near_fade(output.positionPS);
    output.fog = calculate_fog(output.positionWS, output.positionPS);
    output.cull_distance = 

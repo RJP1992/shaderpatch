@@ -580,6 +580,8 @@ private:
    glm::mat4 _informal_view_matrix;
    glm::mat4 _postprocess_projection_matrix;
    glm::mat4 _postprocess_view_matrix;
+   glm::mat4 _farscene_projection_matrix;
+   bool _need_capture_farscene_projection = false;
 
    const HWND _window;
 

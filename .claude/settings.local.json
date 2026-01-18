@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(grep:*)",
+      "Bash(msbuild:*)",
+      "Bash(cmd /c \"where msbuild 2>nul || dir /s /b \"\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\*msbuild.exe\"\" 2>nul || dir /s /b \"\"C:\\\\Program Files \\(x86\\)\\\\Microsoft Visual Studio\\\\2022\\\\*msbuild.exe\"\" 2>nul\")",
+      "Bash(cmd /c \"\"\"C:\\\\Program Files \\(x86\\)\\\\Microsoft Visual Studio\\\\Installer\\\\vswhere.exe\"\" -latest -requires Microsoft.Component.MSBuild -find MSBuild\\\\**\\\\Bin\\\\MSBuild.exe\")",
+      "Bash(cmd /c \"dir \"\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\"\" 2>nul && echo FOUND\")",
+      "Bash(cmd /c \"dir \"\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\"\" 2>nul\")",
+      "Bash(powershell:*)",
+      "Bash(cmd /c:*)",
+      "Bash(\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\" \"C:\\\\Users\\\\tehpa\\\\source\\\\repos\\\\shaderpatch\\\\shader_patch.vcxproj\" /p:Configuration=Release /p:Platform=Win32 /verbosity:normal)",
+      "Bash(dir /s /b \"C:\\\\Users\\\\tehpa\\\\source\\\\repos\\\\shaderpatch\\\\assets\\\\core\")",
+      "Bash(python:*)",
+      "Bash(copy \"C:\\\\BF2_ModTools\\\\custom_assets\\\\Mods\\\\SWBF3 Legacy\\\\Source Assets\\\\misctex\\\\generic\\\\perlin.png\" \"C:\\\\Users\\\\tehpa\\\\source\\\\repos\\\\shaderpatch\\\\assets\\\\core\\\\textures\\\\_SP_BUILTIN_perlin.png\")",
+      "Bash(dir \"D:\\\\BF3 RAW\\\\bf3shaders\")",
+      "Bash(dir:*)",
+      "Bash(where:*)",
+      "Bash(\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\amd64\\\\MSBuild.exe\" shader_patch.vcxproj /p:Configuration=Release /p:Platform=Win32 /m /nologo /v:q)",
+      "Bash(\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\amd64\\\\MSBuild.exe\" shader_patch.vcxproj -p:Configuration=Release -p:Platform=Win32 -m -nologo -v:q)",
+      "Bash(\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\amd64\\\\MSBuild.exe\" shader_patch.vcxproj -p:Configuration=Release -p:Platform=Win32 -m -nologo)",
+      "Bash(\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\amd64\\\\MSBuild.exe\" shader_patch.vcxproj -p:Configuration=Release -p:Platform=Win32 -t:Rebuild -m -nologo)",
+      "Bash(del /F /Q \"src\\\\effects\\\\clouds_bf3.cpp\" \"src\\\\effects\\\\clouds_bf3.hpp\" \"src\\\\effects\\\\clouds_bf3_params.hpp\" \"src\\\\effects\\\\clouds_simple.cpp\" \"src\\\\effects\\\\clouds_simple.hpp\" \"src\\\\effects\\\\clouds_simple_params.hpp\" \"src\\\\effects\\\\clouds_hybrid.cpp\" \"src\\\\effects\\\\clouds_hybrid.hpp\" \"src\\\\effects\\\\clouds_hybrid_params.hpp\")",
+      "Bash(MSBuild.exe:*)",
+      "Bash(head:*)",
+      "Bash(for f in *.hlsl)",
+      "Bash(do head -5 \"$f\")",
+      "Bash(echo:*)",
+      "Bash(break)",
+      "Bash(done)",
+      "Bash(do head -3 \"$f\")",
+      "Bash(iconv:*)",
+      "Bash(findstr:*)",
+      "Bash(find:*)"
+    ]
+  }
+}

@@ -173,8 +173,8 @@
     <None Include="definitions\patch\adaptive_oit_resolve.json" />
     <None Include="definitions\patch\basic_unlit.json" />
     <None Include="definitions\patch\bloom_alt.json" />
-    <None Include="definitions\patch\clouds_bf3.json" />
     <None Include="definitions\patch\cloud_layer.json" />
+    <None Include="definitions\patch\clouds.json" />
     <None Include="definitions\patch\cmaa2.json" />
     <None Include="definitions\patch\color_grading_lut_baker.json" />
     <None Include="definitions\patch\depth_msaa_resolve.json" />
@@ -196,6 +196,9 @@
     <None Include="definitions\patch\scope_blur.json" />
     <None Include="definitions\patch\skybox.json" />
     <None Include="definitions\patch\skybox_blend.json" />
+    <None Include="definitions\patch\sky_bf3.json" />
+    <None Include="definitions\patch\sky_atmos_bf3.json" />
+    <None Include="definitions\patch\skyblend_bf3.json" />
     <None Include="definitions\patch\static_water.json" />
     <None Include="definitions\patch\text.json" />
     <CustomBuild Include="build_lvls.ps1">
@@ -485,6 +488,21 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <None Include="src\sky_bf3.fx">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\sky_atmos_bf3.fx">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\skyblend_bf3.fx">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
     <None Include="src\basic_unlit.fx">
       <FileType>Document</FileType>
     </None>
@@ -582,9 +600,11 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <None Include="src\clouds_bf3.fx">
+    <None Include="src\clouds.fx">
       <FileType>Document</FileType>
     </None>
+  </ItemGroup>
+  <ItemGroup>
     <FxCompile Include="src\hologram.fx" />
     <FxCompile Include="src\lighting_blinnphong_ext.hlsl" />
     <FxCompile Include="src\normal_bf3_ambient_common.hlsl" />
@@ -593,6 +613,8 @@
     <FxCompile Include="src\particle_bf3.fx" />
     <FxCompile Include="src\postprocess_dof.fx" />
     <FxCompile Include="src\postprocess_fog.fx" />
+    <FxCompile Include="src\postprocess_skybox.fx" />
+    <FxCompile Include="src\sky_dome.fx" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
