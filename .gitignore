@@ -304,3 +304,10 @@ __pycache__/
 *.btm.cs
 *.odx.cs
 *.xsd.cs
+/.claude
+/PHASE_0_1_FINDINGS.md
+/PHASE_0_2_FINDINGS.md
+/PHASE_0_4_ROOT_CAUSE.md
+/PHASE_0_5_FIX_SUMMARY.md
+/PLAN_fog_depth_fix.md
+/nul

@@ -171,21 +171,26 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="definitions\patch\adaptive_oit_resolve.json" />
+    <None Include="definitions\patch\ASSAO.json" />
     <None Include="definitions\patch\basic_unlit.json" />
     <None Include="definitions\patch\bloom_alt.json" />
     <None Include="definitions\patch\cmaa2.json" />
     <None Include="definitions\patch\color_grading_lut_baker.json" />
+    <None Include="definitions\patch\debug_visualizer.json" />
     <None Include="definitions\patch\depth_msaa_resolve.json" />
     <None Include="definitions\patch\ffx_cas.json" />
     <None Include="definitions\patch\gaussian_blur.json" />
     <None Include="definitions\patch\late_backbuffer_resolve.json" />
     <None Include="definitions\patch\mask_nan.json" />
     <None Include="definitions\patch\normal_bf3.json" />
+    <None Include="definitions\patch\normal_bf3_ambient.json" />
+    <None Include="definitions\patch\normal_bf3_character.json" />
     <None Include="definitions\patch\normal_ext_terrain.json" />
     <None Include="definitions\patch\particle_ext.json" />
     <None Include="definitions\patch\pbr_terrain.json" />
     <None Include="definitions\patch\pixel_inspector.json" />
     <None Include="definitions\patch\postprocess_bloom.json" />
+    <None Include="definitions\patch\postprocess_dof.json" />
     <None Include="definitions\patch\postprocess_msaa_resolve.json" />
     <None Include="definitions\patch\scene_blur.json" />
     <None Include="definitions\patch\scope_blur.json" />
@@ -553,6 +558,40 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="src\normal_bf3.fx">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\normal_bf3_common.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\postprocess_dof.fx">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\lighting_blinnphong_ext.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\normal_bf3_ambient.fx">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\normal_bf3_ambient_common.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\normal_bf3_character.fx">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\normal_bf3_character_common.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\debug_visualizer.fx">
       <FileType>Document</FileType>
     </None>
   </ItemGroup>

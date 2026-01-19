@@ -728,6 +728,27 @@ void User_config::parse_file(const std::string& path)
    developer.scalable_font_name =
       config["Developer"s]["Scalable Font Name"s].as<std::string>();
 
+   // Debug visualizer settings
+   developer.debug_visualizer_toggle_key =
+      config["Developer"s]["Debug Visualizer Toggle Key"s].as<std::uint32_t>(
+         developer.debug_visualizer_toggle_key);
+
+   developer.debug_visualizer_cycle_key =
+      config["Developer"s]["Debug Visualizer Cycle Key"s].as<std::uint32_t>(
+         developer.debug_visualizer_cycle_key);
+
+   developer.debug_visualizer_max_depth =
+      config["Developer"s]["Debug Visualizer Max Depth"s].as<float>(
+         developer.debug_visualizer_max_depth);
+
+   developer.debug_visualizer_stencil_alpha =
+      config["Developer"s]["Debug Visualizer Stencil Alpha"s].as<float>(
+         developer.debug_visualizer_stencil_alpha);
+
+   developer.debug_visualizer_stencil_max_ref =
+      config["Developer"s]["Debug Visualizer Stencil Max Ref"s].as<std::uint8_t>(
+         developer.debug_visualizer_stencil_max_ref);
+
    std::ofstream out{path};
 
    out << config;

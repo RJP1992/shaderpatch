@@ -419,6 +419,19 @@
     <None Include="src\normal_bf3.fx">
       <Filter>src</Filter>
     </None>
+    <None Include="src\normal_bf3_common.hlsl" />
+    <None Include="src\postprocess_dof.fx" />
+    <None Include="definitions\patch\postprocess_dof.json" />
+    <None Include="definitions\patch\ASSAO.json" />
+    <None Include="src\lighting_blinnphong_ext.hlsl" />
+    <None Include="src\normal_bf3_character_common.hlsl" />
+    <None Include="src\normal_bf3_character.fx" />
+    <None Include="src\normal_bf3_ambient_common.hlsl" />
+    <None Include="src\normal_bf3_ambient.fx" />
+    <None Include="definitions\patch\normal_bf3_character.json" />
+    <None Include="definitions\patch\normal_bf3_ambient.json" />
+    <None Include="definitions\patch\debug_visualizer.json" />
+    <None Include="src\debug_visualizer.fx" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="definitions">

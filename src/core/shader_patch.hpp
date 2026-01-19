@@ -34,6 +34,7 @@
 #include "texture_database.hpp"
 #include "texture_loader.hpp"
 #include "tools/pixel_inspector.hpp"
+#include "debug_visualizer.hpp"
 
 #include <span>
 #include <vector>
@@ -98,6 +99,10 @@ public:
    void set_expected_aspect_ratio(const float expected_aspect_ratio) noexcept;
 
    void present() noexcept;
+
+   // Debug visualizer access (for ImGui controls and external configuration)
+   Debug_visualizer& debug_visualizer() noexcept { return _debug_visualizer; }
+   const Debug_visualizer& debug_visualizer() const noexcept { return _debug_visualizer; }
 
    auto get_back_buffer() noexcept -> Game_rendertarget_id;
 
@@ -359,6 +364,15 @@ private:
    Depthstencil _reflectionscene_depthstencil;
    Game_depthstencil _current_depthstencil_id = Game_depthstencil::nearscene;
 
+   // Debug: backup of buffers captured before clear
+   Depthstencil _debug_stencil_capture;
+   Depthstencil _debug_depth_capture;
+   bool _debug_stencil_captured_this_frame = false;
+   bool _debug_depth_captured_this_frame = false;
+   int _debug_depth_clear_count = 0;   // How many depth clears this frame
+   int _debug_stencil_clear_count = 0; // How many stencil clears this frame
+   bool _debug_captured_from_farscene = false; // Track which buffer was captured
+
    Game_input_layout _game_input_layout{};
    D3D11_PRIMITIVE_TOPOLOGY _primitive_topology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
    Game_shader* _game_shader = nullptr;
@@ -576,6 +590,8 @@ private:
 
    glm::mat4 _informal_projection_matrix;
    glm::mat4 _postprocess_projection_matrix;
+   glm::mat4 _nearscene_projection_matrix;   // Projection when rendering to nearscene
+   glm::mat4 _farscene_projection_matrix;    // Projection when rendering to farscene
 
    const HWND _window;
 
@@ -600,6 +616,9 @@ private:
    std::unique_ptr<BF2_log_monitor> _bf2_log_monitor;
 
    tools::Pixel_inspector _pixel_inspector{_device, _shader_database};
+
+   // Debug visualization for depth buffer and stencil mask inspection
+   Debug_visualizer _debug_visualizer{_device, _shader_database};
 };
 }
 }

@@ -132,6 +132,14 @@ struct User_config {
          LR"(.\data\shaderpatch\scripts\material)";
 
       std::filesystem::path scalable_font_name = L"ariblk.ttf";
+
+      // Debug visualizer settings
+      // Provides depth buffer and stencil mask visualization for debugging
+      std::uint32_t debug_visualizer_toggle_key = 0;     // VK code (e.g., 0x79 for F10)
+      std::uint32_t debug_visualizer_cycle_key = 0;      // VK code (e.g., 0x7A for F11)
+      float debug_visualizer_max_depth = 500.0f;         // Max depth distance for normalization
+      float debug_visualizer_stencil_alpha = 0.6f;       // Stencil overlay transparency
+      std::uint8_t debug_visualizer_stencil_max_ref = 8; // Max stencil values to visualize
    } developer;
 
    void show_imgui() noexcept;

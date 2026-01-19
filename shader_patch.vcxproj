@@ -159,7 +159,8 @@
       <ObjectFileOutput />
     </FxCompile>
     <PostBuildEvent>
-      <Command>copy "$(WindowsSdkDir)Redist\D3D\x86\d3dcompiler_47.dll" "$(OutputPath)"</Command>
+      <Command>copy "$(WindowsSdkDir)Redist\D3D\x86\d3dcompiler_47.dll" "$(OutputPath)"
+copy "$(OutputPath)d3d9.dll" "C:\Program Files (x86)\Steam\steamapps\common\Star Wars Battlefront II Classic\GameData\" </Command>
     </PostBuildEvent>
     <PostBuildEvent>
       <Message>Copying D3DCompiler Redist...</Message>
@@ -170,6 +171,7 @@
     <ClCompile Include="src\core\backbuffer_cmaa2_views.cpp" />
     <ClCompile Include="src\core\basic_builtin_textures.cpp" />
     <ClCompile Include="src\core\d3d11_helpers.cpp" />
+    <ClCompile Include="src\core\debug_visualizer.cpp" />
     <ClCompile Include="src\core\depth_msaa_resolver.cpp" />
     <ClCompile Include="src\core\game_alt_postprocessing.cpp" />
     <ClCompile Include="src\core\game_rendertarget.cpp" />
@@ -284,6 +286,7 @@
     <ClInclude Include="src\core\backbuffer_cmaa2_views.hpp" />
     <ClInclude Include="src\core\basic_builtin_textures.hpp" />
     <ClInclude Include="src\core\constant_buffers.hpp" />
+    <ClInclude Include="src\core\debug_visualizer.hpp" />
     <ClInclude Include="src\core\depthstencil.hpp" />
     <ClInclude Include="src\core\depth_msaa_resolver.hpp" />
     <ClInclude Include="src\core\game_alt_postprocessing.hpp" />
@@ -430,6 +433,7 @@
     <ClInclude Include="src\window_hooks.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="assets\core\definitions\patch\debug_visualizer.json" />
     <None Include="d3d9.def" />
     <None Include="vcpkg.json" />
   </ItemGroup>
@@ -437,6 +441,11 @@
     <ProjectReference Include="shared\shared.vcxproj">
       <Project>{cc4890f2-40e7-446f-8971-5114ea566c27}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="assets\core\src\debug_visualizer.fx">
+      <FileType>Document</FileType>
+    </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

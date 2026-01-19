@@ -298,6 +298,133 @@ void Shader_patch::present() noexcept
       patch_backbuffer_resolve();
    }
 
+   // Debug visualizer: render depth/stencil visualization if enabled
+   // Must be after scene is complete but before ImGui so controls render on top
+   _debug_visualizer.update_input();
+
+   // Capture at present if requested (captures final frame state)
+   if (_debug_visualizer.config().capture_at_present) {
+      Depthstencil* source = nullptr;
+      bool from_farscene = false;
+      if (_frame_swapped_depthstencil) {
+         source = &_farscene_depthstencil;
+         from_farscene = true;
+      }
+      else {
+         source = &_nearscene_depthstencil;
+         from_farscene = false;
+      }
+
+      if (source && source->texture) {
+         _debug_captured_from_farscene = from_farscene;
+         if (_debug_visualizer.config().capture_depth_before_clear) {
+            if (!_debug_depth_capture.texture) {
+               _debug_depth_capture = {*_device, _render_width, _render_height, _rt_sample_count};
+            }
+            _device_context->CopyResource(_debug_depth_capture.texture.get(),
+                                          source->texture.get());
+            _debug_depth_captured_this_frame = true;
+         }
+         if (_debug_visualizer.config().capture_stencil_before_clear) {
+            if (!_debug_stencil_capture.texture) {
+               _debug_stencil_capture = {*_device, _render_width, _render_height, _rt_sample_count};
+            }
+            _device_context->CopyResource(_debug_stencil_capture.texture.get(),
+                                          source->texture.get());
+            _debug_stencil_captured_this_frame = true;
+         }
+      }
+   }
+
+   if (_debug_visualizer.is_active()) {
+      // Get depth resources for visualization
+      // NOTE: With MSAA, depth is resolved to farscene but stencil is NOT resolved.
+      // - Depth SRV: use farscene (resolved, single-sample) for MSAA, nearscene otherwise
+      // - Stencil DSV: ALWAYS use nearscene because stencil is never resolved
+      //
+      // IMPORTANT: In non-MSAA mode, near/far depthstencil may be swapped during the frame
+      // (for DoF effects). When swapped, the original nearscene is now in farscene.
+      ID3D11ShaderResourceView* nearscene_depth_srv;
+      ID3D11ShaderResourceView* farscene_depth_srv;
+      ID3D11DepthStencilView* stencil_dsv_readonly;
+
+      // Debug override: force farscene buffer if requested
+      const bool force_farscene = _debug_visualizer.config().force_farscene_buffer;
+
+      // Check if we should use the captures
+      const bool use_captured_stencil =
+         _debug_stencil_captured_this_frame &&
+         _debug_visualizer.config().capture_stencil_before_clear &&
+         _debug_stencil_capture.dsv_readonly;
+
+      const bool use_captured_depth =
+         _debug_depth_captured_this_frame &&
+         _debug_visualizer.config().capture_depth_before_clear &&
+         _debug_depth_capture.srv;
+
+      // For dual-buffer mode, we need both nearscene and farscene depth SRVs
+      // Note: After swap, names are confusing - "nearscene" variable holds farscene content
+      if (_rt_sample_count > 1) {
+         // MSAA: depth from resolved farscene (or capture), stencil from MSAA nearscene (or capture)
+         nearscene_depth_srv = use_captured_depth
+            ? _debug_depth_capture.srv.get()
+            : _farscene_depthstencil.srv.get();
+         farscene_depth_srv = _nearscene_depthstencil.srv.get();  // For dual mode
+         if (use_captured_stencil) {
+            stencil_dsv_readonly = _debug_stencil_capture.dsv_readonly.get();
+         }
+         else {
+            stencil_dsv_readonly = force_farscene
+               ? _farscene_depthstencil.dsv_readonly.get()
+               : _nearscene_depthstencil.dsv_readonly.get();
+         }
+      }
+      else if (_frame_swapped_depthstencil || force_farscene) {
+         // Non-MSAA with swap (or forced): original nearscene is now farscene
+         nearscene_depth_srv = use_captured_depth
+            ? _debug_depth_capture.srv.get()
+            : _farscene_depthstencil.srv.get();
+         farscene_depth_srv = _nearscene_depthstencil.srv.get();  // For dual mode
+         stencil_dsv_readonly = use_captured_stencil
+            ? _debug_stencil_capture.dsv_readonly.get()
+            : _farscene_depthstencil.dsv_readonly.get();
+      }
+      else {
+         // Non-MSAA: both from nearscene (or capture)
+         nearscene_depth_srv = use_captured_depth
+            ? _debug_depth_capture.srv.get()
+            : _nearscene_depthstencil.srv.get();
+         farscene_depth_srv = _farscene_depthstencil.srv.get();  // For dual mode
+         stencil_dsv_readonly = use_captured_stencil
+            ? _debug_stencil_capture.dsv_readonly.get()
+            : _nearscene_depthstencil.dsv_readonly.get();
+      }
+
+      // Update buffer source info for ImGui display
+      _debug_visualizer.set_buffer_source_info(use_captured_depth, _debug_depth_captured_this_frame,
+                                                use_captured_stencil, _debug_stencil_captured_this_frame,
+                                                _debug_depth_clear_count, _debug_stencil_clear_count,
+                                                _debug_captured_from_farscene, _frame_swapped_depthstencil);
+      _debug_visualizer.set_projection_info(_nearscene_projection_matrix, _farscene_projection_matrix);
+
+      _debug_visualizer.render(*_device_context,
+                               _swapchain.rtv(),
+                               nearscene_depth_srv,
+                               farscene_depth_srv,
+                               stencil_dsv_readonly,
+                               _rt_sample_count,
+                               _nearscene_projection_matrix,
+                               _farscene_projection_matrix,
+                               _render_width,
+                               _render_height);
+
+      // Restore game state after debug visualization (may have modified pipeline)
+      restore_all_game_state();
+   }
+
+   // Show debug visualizer ImGui panel if enabled
+   _debug_visualizer.show_imgui();
+
    update_imgui();
 
    if (std::exchange(_screenshot_requested, false))
@@ -1072,6 +1199,53 @@ void Shader_patch::clear_depthstencil(const float depth, const UINT8 stencil,
                                       const bool clear_depth,
                                       const bool clear_stencil) noexcept
 {
+   // Debug: capture buffers BEFORE any swap or clear happens
+   // This ensures we get the actual rendered content
+   {
+      // Determine which depthstencil to copy from (before any swap)
+      Depthstencil* source = nullptr;
+      if (_current_depthstencil_id == Game_depthstencil::nearscene) {
+         source = &_nearscene_depthstencil;
+      }
+      else if (_current_depthstencil_id == Game_depthstencil::farscene) {
+         source = &_farscene_depthstencil;
+      }
+
+      // Get target clear number (1-indexed in UI, compare against count after increment)
+      const int target_clear = _debug_visualizer.config().capture_on_clear_number;
+
+      // Capture stencil before clear (on the Nth stencil clear)
+      if (clear_stencil && source && source->texture &&
+          _debug_visualizer.config().capture_stencil_before_clear &&
+          (_debug_stencil_clear_count + 1) == target_clear) {
+
+         // Ensure backup texture exists with correct dimensions
+         if (!_debug_stencil_capture.texture) {
+            _debug_stencil_capture = {*_device, _render_width, _render_height, _rt_sample_count};
+         }
+
+         _device_context->CopyResource(_debug_stencil_capture.texture.get(),
+                                       source->texture.get());
+         _debug_stencil_captured_this_frame = true;
+      }
+
+      // Capture depth before clear (on the Nth depth clear)
+      if (clear_depth && source && source->texture &&
+          _debug_visualizer.config().capture_depth_before_clear &&
+          (_debug_depth_clear_count + 1) == target_clear) {
+
+         // Ensure backup texture exists with correct dimensions
+         if (!_debug_depth_capture.texture) {
+            _debug_depth_capture = {*_device, _render_width, _render_height, _rt_sample_count};
+         }
+
+         _device_context->CopyResource(_debug_depth_capture.texture.get(),
+                                       source->texture.get());
+         _debug_depth_captured_this_frame = true;
+      }
+   }
+
+   // Swap near/far depthstencil for DoF (non-MSAA only)
    if (clear_depth && _rt_sample_count == 1 &&
        _current_depthstencil_id == Game_depthstencil::nearscene && _frame_had_skyfog) {
       _device_context->SetMarkerInt(L"Swapped Near/Far Depth Stencil", 0);
@@ -1093,6 +1267,10 @@ void Shader_patch::clear_depthstencil(const float depth, const UINT8 stencil,
 
    const UINT clear_flags = (clear_depth ? D3D11_CLEAR_DEPTH : 0) |
                             (clear_stencil ? D3D11_CLEAR_STENCIL : 0);
+
+   // Track clear counts for diagnostics
+   if (clear_depth) ++_debug_depth_clear_count;
+   if (clear_stencil) ++_debug_stencil_clear_count;
 
    _device_context->ClearDepthStencilView(dsv, clear_flags, depth, stencil);
 }
@@ -1373,6 +1551,20 @@ void Shader_patch::set_constants(const cb::Draw_ps_tag, const UINT offset,
 void Shader_patch::set_informal_projection_matrix(const glm::mat4 matrix) noexcept
 {
    _informal_projection_matrix = matrix;
+
+   // Track projection per depthstencil for debug visualizer dual-buffer mode
+   if (_current_depthstencil_id == Game_depthstencil::nearscene) {
+      _nearscene_projection_matrix = matrix;
+   }
+   else if (_current_depthstencil_id == Game_depthstencil::farscene) {
+      _farscene_projection_matrix = matrix;
+   }
+
+   // Fallback: if farscene projection was never set, use nearscene projection
+   // This handles games that only set projection once
+   if (_farscene_projection_matrix[2][2] == 0.0f && _farscene_projection_matrix[3][2] == 0.0f) {
+      _farscene_projection_matrix = matrix;
+   }
 }
 
 void Shader_patch::draw(const D3D11_PRIMITIVE_TOPOLOGY topology,
@@ -2069,6 +2261,11 @@ void Shader_patch::update_frame_state() noexcept
    _frame_had_shadows = false;
    _frame_had_skyfog = false;
    _frame_swapped_depthstencil = false;
+   _debug_stencil_captured_this_frame = false;
+   _debug_depth_captured_this_frame = false;
+   _debug_depth_clear_count = 0;
+   _debug_stencil_clear_count = 0;
+   _debug_captured_from_farscene = false;
 }
 
 void Shader_patch::update_imgui() noexcept
@@ -2095,6 +2292,21 @@ void Shader_patch::update_imgui() noexcept
 
          if (_pixel_inspector.enabled) {
             _pixel_inspector.show(*_device_context, _swapchain, _window);
+         }
+
+         ImGui::Separator();
+
+         // Debug Visualizer controls
+         ImGui::Text("Debug Visualizer");
+
+         int mode = static_cast<int>(_debug_visualizer.config().mode);
+         if (ImGui::Combo("Mode", &mode, debug_visualizer_mode_names,
+                          static_cast<int>(Debug_visualizer_mode::_count))) {
+            _debug_visualizer.config().mode = static_cast<Debug_visualizer_mode>(mode);
+         }
+
+         if (_debug_visualizer.is_active()) {
+            ImGui::Checkbox("Show Settings", &_debug_visualizer.config().show_imgui_window);
          }
       }
 

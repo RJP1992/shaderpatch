@@ -1,0 +1,18 @@
+{
+  "group_name": "debug visualizer",
+  "source_name": "debug_visualizer.fx",
+
+  "entrypoints": {
+    "depth_ps": {
+      "stage": "pixel"
+    },
+
+    "stencil_ps": {
+      "stage": "pixel"
+    }
+  },
+
+  "rendertypes": {},
+
+  "states": {}
+}
