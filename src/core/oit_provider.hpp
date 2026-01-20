@@ -2,6 +2,7 @@
 
 #include "../shader/database.hpp"
 #include "com_ptr.hpp"
+#include "constant_buffers.hpp"
 
 #include <d3d11_4.h>
 
@@ -24,7 +25,7 @@ public:
 
    void clear_resources() noexcept;
 
-   void resolve(ID3D11DeviceContext4& dc) const noexcept;
+   void resolve(ID3D11DeviceContext4& dc, const cb::Fog* fog_constants = nullptr) noexcept;
 
    auto uavs() const noexcept -> std::array<ID3D11UnorderedAccessView*, 3>;
 
@@ -54,6 +55,37 @@ private:
       _device->CreateBlendState1(&desc, blendstate.clear_and_assign());
 
       return blendstate;
+   }();
+
+   // OIT resolve constants (b5)
+   struct alignas(16) OIT_resolve_constants {
+      glm::vec2 screen_size{0.0f, 0.0f};
+      std::uint32_t fog_enabled{0};
+      float _padding{0.0f};
+   };
+
+   Com_ptr<ID3D11Buffer> _resolve_cb = [this] {
+      D3D11_BUFFER_DESC desc{};
+      desc.ByteWidth = sizeof(OIT_resolve_constants);
+      desc.Usage = D3D11_USAGE_DYNAMIC;
+      desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+      desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+      Com_ptr<ID3D11Buffer> buffer;
+      _device->CreateBuffer(&desc, nullptr, buffer.clear_and_assign());
+      return buffer;
+   }();
+
+   Com_ptr<ID3D11Buffer> _fog_cb = [this] {
+      D3D11_BUFFER_DESC desc{};
+      desc.ByteWidth = sizeof(cb::Fog);
+      desc.Usage = D3D11_USAGE_DYNAMIC;
+      desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+      desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+      Com_ptr<ID3D11Buffer> buffer;
+      _device->CreateBuffer(&desc, nullptr, buffer.clear_and_assign());
+      return buffer;
    }();
 
    Com_ptr<ID3D11Texture2D> _opaque_texture;

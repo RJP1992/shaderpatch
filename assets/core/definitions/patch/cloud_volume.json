@@ -1,0 +1,17 @@
+{
+  "group_name": "cloud_volume",
+  "source_name": "cloud_volume.fx",
+  "entrypoints": {
+    "main_vs": {
+      "stage": "vertex",
+      "vertex_state": {
+        "input_layout": "$auto"
+      }
+    },
+    "main_ps": {
+      "stage": "pixel"
+    }
+  },
+  "rendertypes": {},
+  "states": {}
+}

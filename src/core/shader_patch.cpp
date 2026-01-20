@@ -1567,6 +1567,11 @@ void Shader_patch::set_informal_projection_matrix(const glm::mat4 matrix) noexce
    }
 }
 
+void Shader_patch::set_view_matrix(const glm::mat4 matrix) noexcept
+{
+   _view_matrix = matrix;
+}
+
 void Shader_patch::draw(const D3D11_PRIMITIVE_TOPOLOGY topology,
                         const UINT vertex_count, const UINT start_vertex) noexcept
 {
@@ -1673,6 +1678,10 @@ void Shader_patch::bind_static_resources() noexcept
 
    _device_context->PSSetConstantBuffers(0, ps_constant_buffers.size(),
                                          ps_constant_buffers.data());
+
+   // Bind fog constant buffer to PS b4 for material fog color blending
+   auto* fog_cb = _cb_fog_buffer.get();
+   _device_context->PSSetConstantBuffers(4, 1, &fog_cb);
 
    const auto ps_samplers = std::array{_sampler_states.aniso_wrap_sampler.get(),
                                        _sampler_states.linear_clamp_sampler.get(),
@@ -1891,6 +1900,21 @@ void Shader_patch::game_rendertype_changed() noexcept
 
       _on_rendertype_changed = [&]() noexcept {
          resolve_refraction_texture();
+
+         // Apply SWBF3-style cloud layer if enabled (before fog so fog affects clouds)
+         if (_effects_active && _effects.cloud_layer.enabled()) {
+            apply_cloud_layer();
+         }
+
+         // Apply SWBF3-style cloud volumes if enabled (before fog)
+         if (_effects_active && _effects.cloud_volume.enabled()) {
+            apply_cloud_volume();
+         }
+
+         // Apply SWBF3-style post-process fog if enabled
+         if (_effects_active && _effects.postprocess_fog.enabled()) {
+            apply_postprocess_fog();
+         }
 
          if (_oit_provider.enabled() ||
              (_effects_active && _effects.config().oit_requested)) {
@@ -2185,6 +2209,7 @@ void Shader_patch::update_dirty_state(const D3D11_PRIMITIVE_TOPOLOGY draw_primit
 
    if (std::exchange(_cb_scene_dirty, false)) {
       update_dynamic_buffer(*_device_context, *_cb_scene_buffer, _cb_scene);
+      _cb_fog_dirty = true; // Fog params may have changed
    }
 
    if (std::exchange(_cb_draw_dirty, false)) {
@@ -2197,6 +2222,12 @@ void Shader_patch::update_dirty_state(const D3D11_PRIMITIVE_TOPOLOGY draw_primit
 
    if (std::exchange(_cb_draw_ps_dirty, false)) {
       update_dynamic_buffer(*_device_context, *_cb_draw_ps_buffer, _cb_draw_ps);
+   }
+
+   // Update fog CB for material fog color blending (only fog color/start/end matter here)
+   if (_effects.postprocess_fog.enabled() && std::exchange(_cb_fog_dirty, false)) {
+      _cb_fog = _effects.postprocess_fog.fog_params();
+      update_dynamic_buffer(*_device_context, *_cb_fog_buffer, _cb_fog);
    }
 
    if (std::exchange(_projtex_mode_dirty, false)) {
@@ -2620,6 +2651,192 @@ void Shader_patch::resolve_refraction_texture() noexcept
    restore_all_game_state();
 }
 
+void Shader_patch::apply_cloud_layer() noexcept
+{
+   if (!_effects.cloud_layer.enabled()) return;
+
+   const auto& scene_rt = _game_rendertargets[0];
+
+   // Set up cloud layer constants (3-layer system)
+   cb::CloudLayers cloud_constants = _effects.cloud_layer.params();
+
+   // Compute inverse view matrix for world position reconstruction
+   cloud_constants.inv_view_matrix = glm::transpose(glm::inverse(_view_matrix));
+
+   // Extract projection scale for view-space reconstruction
+   cloud_constants.proj_scale_x = _postprocess_projection_matrix[0][0];
+   cloud_constants.proj_scale_y = _postprocess_projection_matrix[1][1];
+
+   // Camera position from scene constants
+   cloud_constants.camera_position = _cb_scene.vs_view_positionWS;
+   cloud_constants.time = _cb_scene.time;
+
+   // Extract depth linearization params from projection matrix
+   float linearize_mul = -_postprocess_projection_matrix[3][2];
+   float linearize_add = _postprocess_projection_matrix[2][2];
+   if (linearize_mul * linearize_add < 0) {
+      linearize_add = -linearize_add;
+   }
+   cloud_constants.depth_linearize_params = glm::vec2(linearize_mul, linearize_add);
+
+   // Get depth texture
+   ID3D11ShaderResourceView* depth_srv = nullptr;
+
+   if (_rt_sample_count > 1) {
+      depth_srv = _farscene_depthstencil.srv.get();
+   }
+   else if (_frame_swapped_depthstencil) {
+      depth_srv = _farscene_depthstencil.srv.get();
+   }
+   else {
+      depth_srv = _nearscene_depthstencil.srv.get();
+   }
+
+   if (!depth_srv) return;
+
+   // Apply the cloud layer effect (blends directly onto scene RT)
+   _effects.cloud_layer.apply(
+      *_device_context,
+      {
+         .rtv = *scene_rt.rtv,
+         .depth_srv = *depth_srv,
+         .width = scene_rt.width,
+         .height = scene_rt.height,
+      },
+      cloud_constants,
+      _effects.profiler
+   );
+
+   restore_all_game_state();
+}
+
+void Shader_patch::apply_cloud_volume() noexcept
+{
+   if (!_effects.cloud_volume.enabled()) return;
+
+   const auto& scene_rt = _game_rendertargets[0];
+
+   // Get depth texture
+   ID3D11ShaderResourceView* depth_srv = nullptr;
+
+   if (_rt_sample_count > 1) {
+      depth_srv = _farscene_depthstencil.srv.get();
+   }
+   else if (_frame_swapped_depthstencil) {
+      depth_srv = _farscene_depthstencil.srv.get();
+   }
+   else {
+      depth_srv = _nearscene_depthstencil.srv.get();
+   }
+
+   if (!depth_srv) return;
+
+   // Update cloud volume view/projection matrices
+   _effects.cloud_volume.set_view_projection(
+      _view_matrix,
+      _postprocess_projection_matrix,
+      _cb_scene.vs_view_positionWS,
+      _cb_scene.time
+   );
+
+   // Apply the cloud volume effect
+   _effects.cloud_volume.apply(
+      *_device_context,
+      {
+         .rtv = *scene_rt.rtv,
+         .depth_srv = *depth_srv,
+         .width = scene_rt.width,
+         .height = scene_rt.height,
+      },
+      _effects.profiler
+   );
+
+   restore_all_game_state();
+}
+
+void Shader_patch::apply_postprocess_fog() noexcept
+{
+   if (!_effects.postprocess_fog.enabled()) return;
+
+   const auto& scene_rt = _game_rendertargets[0];
+
+   // Allocate a temporary render target for the scene copy
+   auto temp_rt = _rendertarget_allocator.allocate({
+      .format = scene_rt.format,
+      .width = scene_rt.width,
+      .height = scene_rt.height,
+      .bind_flags = effects::rendertarget_bind_srv_rtv,
+   });
+
+   // Copy the scene to the temp RT
+   _device_context->CopyResource(&temp_rt.texture(), scene_rt.texture.get());
+
+   // Set up fog constants
+   cb::Fog fog_constants = _effects.postprocess_fog.fog_params();
+
+   // Compute inverse view matrix for world position reconstruction
+   // The view matrix from D3D9 is row-major; we transpose for HLSL row-vector * matrix convention
+   fog_constants.inv_view_matrix = glm::transpose(glm::inverse(_view_matrix));
+
+   // Extract projection scale (focal length) for view-space reconstruction
+   fog_constants.proj_scale_x = _postprocess_projection_matrix[0][0];
+   fog_constants.proj_scale_y = _postprocess_projection_matrix[1][1];
+
+   // Camera position from scene constants
+   fog_constants.camera_position = _cb_scene.vs_view_positionWS;
+   fog_constants.time = _cb_scene.time;
+
+   // Extract depth linearization params from projection matrix
+   // (same approach as debug_visualizer)
+   // For perspective: proj[2][2] = far/(far-near), proj[3][2] = -(far*near)/(far-near)
+   // Linearization: linear_z = mul / (add - raw_depth)
+   float linearize_mul = -_postprocess_projection_matrix[3][2];
+   float linearize_add = _postprocess_projection_matrix[2][2];
+   if (linearize_mul * linearize_add < 0) {
+      linearize_add = -linearize_add;
+   }
+   fog_constants.depth_linearize_params = glm::vec2(linearize_mul, linearize_add);
+
+   // Get depth texture - handle MSAA and buffer swap correctly
+   // (same logic as debug_visualizer)
+   ID3D11ShaderResourceView* depth_srv = nullptr;
+
+   if (_rt_sample_count > 1) {
+      // MSAA: Can't sample MSAA depth directly, use resolved farscene buffer
+      // After swap, farscene actually contains the nearscene content
+      depth_srv = _farscene_depthstencil.srv.get();
+   }
+   else if (_frame_swapped_depthstencil) {
+      // Non-MSAA with swap: original nearscene is now in farscene variable
+      depth_srv = _farscene_depthstencil.srv.get();
+   }
+   else {
+      // Non-MSAA without swap: use nearscene directly
+      depth_srv = _nearscene_depthstencil.srv.get();
+   }
+
+   if (!depth_srv) {
+      // No depth available, can't apply fog
+      return;
+   }
+
+   // Apply the fog effect
+   _effects.postprocess_fog.apply(
+      *_device_context,
+      {
+         .rtv = *scene_rt.rtv,
+         .scene_srv = *temp_rt.srv(),
+         .depth_srv = *depth_srv,
+         .width = scene_rt.width,
+         .height = scene_rt.height,
+      },
+      fog_constants,
+      _effects.profiler
+   );
+
+   restore_all_game_state();
+}
+
 void Shader_patch::resolve_oit() noexcept
 {
    Expects(_oit_active);
@@ -2627,7 +2844,34 @@ void Shader_patch::resolve_oit() noexcept
    _oit_active = false;
    _on_stretch_rendertarget = nullptr;
 
-   _oit_provider.resolve(*_device_context);
+   // Pass fog constants to OIT resolve if fog is enabled
+   if (_effects_active && _effects.postprocess_fog.enabled()) {
+      cb::Fog fog_constants = _effects.postprocess_fog.fog_params();
+
+      // Compute inverse view matrix for world position reconstruction
+      fog_constants.inv_view_matrix = glm::transpose(glm::inverse(_view_matrix));
+
+      // Extract projection scale for view-space reconstruction
+      fog_constants.proj_scale_x = _postprocess_projection_matrix[0][0];
+      fog_constants.proj_scale_y = _postprocess_projection_matrix[1][1];
+
+      // Camera position from scene constants
+      fog_constants.camera_position = _cb_scene.vs_view_positionWS;
+      fog_constants.time = _cb_scene.time;
+
+      // Extract depth linearization params from projection matrix
+      float linearize_mul = -_postprocess_projection_matrix[3][2];
+      float linearize_add = _postprocess_projection_matrix[2][2];
+      if (linearize_mul * linearize_add < 0) {
+         linearize_add = -linearize_add;
+      }
+      fog_constants.depth_linearize_params = glm::vec2(linearize_mul, linearize_add);
+
+      _oit_provider.resolve(*_device_context, &fog_constants);
+   }
+   else {
+      _oit_provider.resolve(*_device_context);
+   }
 
    restore_all_game_state();
 }

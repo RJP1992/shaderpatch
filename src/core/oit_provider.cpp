@@ -64,7 +64,7 @@ void OIT_provider::clear_resources() noexcept
    _color_srv = nullptr;
 }
 
-void OIT_provider::resolve(ID3D11DeviceContext4& dc) const noexcept
+void OIT_provider::resolve(ID3D11DeviceContext4& dc, const cb::Fog* fog_constants) noexcept
 {
    D3D11_TEXTURE2D_DESC texture_desc{};
    _opaque_texture->GetDesc(&texture_desc);
@@ -85,6 +85,33 @@ void OIT_provider::resolve(ID3D11DeviceContext4& dc) const noexcept
 
    dc.RSSetViewports(1, &viewport);
    dc.OMSetBlendState(_composite_blendstate.get(), nullptr, 0xffffffff);
+
+   // Update OIT resolve constants
+   {
+      OIT_resolve_constants resolve_cb{};
+      resolve_cb.screen_size = glm::vec2(static_cast<float>(texture_desc.Width),
+                                         static_cast<float>(texture_desc.Height));
+      resolve_cb.fog_enabled = fog_constants ? 1 : 0;
+
+      D3D11_MAPPED_SUBRESOURCE mapped;
+      if (SUCCEEDED(dc.Map(_resolve_cb.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
+         std::memcpy(mapped.pData, &resolve_cb, sizeof(resolve_cb));
+         dc.Unmap(_resolve_cb.get(), 0);
+      }
+   }
+
+   // Update fog constants if provided
+   if (fog_constants) {
+      D3D11_MAPPED_SUBRESOURCE mapped;
+      if (SUCCEEDED(dc.Map(_fog_cb.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
+         std::memcpy(mapped.pData, fog_constants, sizeof(cb::Fog));
+         dc.Unmap(_fog_cb.get(), 0);
+      }
+   }
+
+   // Bind constant buffers: b4 = fog, b5 = OIT resolve
+   ID3D11Buffer* cbs[] = {_fog_cb.get(), _resolve_cb.get()};
+   dc.PSSetConstantBuffers(4, 2, cbs);
 
    auto* const rtv = _opaque_rtv.get();
    dc.OMSetRenderTargets(1, &rtv, nullptr);

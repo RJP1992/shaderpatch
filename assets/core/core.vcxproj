@@ -190,6 +190,8 @@
     <None Include="definitions\patch\pbr_terrain.json" />
     <None Include="definitions\patch\pixel_inspector.json" />
     <None Include="definitions\patch\postprocess_bloom.json" />
+    <None Include="definitions\patch\cloud_layer.json" />
+    <None Include="definitions\patch\cloud_volume.json" />
     <None Include="definitions\patch\postprocess_dof.json" />
     <None Include="definitions\patch\postprocess_msaa_resolve.json" />
     <None Include="definitions\patch\scene_blur.json" />
@@ -592,6 +594,14 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="src\debug_visualizer.fx">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\cloud_layer.fx">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="src\cloud_volume.fx">
       <FileType>Document</FileType>
     </None>
   </ItemGroup>

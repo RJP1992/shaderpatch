@@ -239,6 +239,8 @@ public:
 
    void set_informal_projection_matrix(const glm::mat4 matrix) noexcept;
 
+   void set_view_matrix(const glm::mat4 matrix) noexcept;
+
    void draw(const D3D11_PRIMITIVE_TOPOLOGY topology, const UINT vertex_count,
              const UINT start_vertex) noexcept;
 
@@ -299,6 +301,12 @@ private:
    void set_linear_rendering(bool linear_rendering) noexcept;
 
    void resolve_refraction_texture() noexcept;
+
+   void apply_cloud_layer() noexcept;
+
+   void apply_cloud_volume() noexcept;
+
+   void apply_postprocess_fog() noexcept;
 
    template<bool restore_state>
    void resolve_msaa_depthstencil() noexcept
@@ -460,6 +468,14 @@ private:
       create_dynamic_constant_buffer(*_device, sizeof(_cb_draw_ps));
    const Com_ptr<ID3D11Buffer> _cb_team_colors_buffer =
       create_dynamic_constant_buffer(*_device, sizeof(cb::Team_colors));
+
+   // SWBF3-style fog constant buffer
+   cb::Fog _cb_fog{};
+   const Com_ptr<ID3D11Buffer> _cb_fog_buffer =
+      create_dynamic_constant_buffer(*_device, sizeof(_cb_fog));
+   bool _fog_enabled = false;
+   bool _cb_fog_dirty{true};
+
    const Com_ptr<ID3D11Buffer> _cb_skin_buffer =
       create_dynamic_structured_buffer(*_device, sizeof(_cb_skin),
                                        sizeof(std::array<glm::vec4, 3>));
@@ -592,6 +608,7 @@ private:
    glm::mat4 _postprocess_projection_matrix;
    glm::mat4 _nearscene_projection_matrix;   // Projection when rendering to nearscene
    glm::mat4 _farscene_projection_matrix;    // Projection when rendering to farscene
+   glm::mat4 _view_matrix{1.0f};             // View matrix for fog world position reconstruction
 
    const HWND _window;
 
