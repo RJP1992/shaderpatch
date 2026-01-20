@@ -4,6 +4,7 @@
 #include "../effects/ffx_cas.hpp"
 #include "../effects/mask_nan.hpp"
 #include "../effects/postprocess.hpp"
+#include "../effects/postprocess_fog.hpp"
 #include "../effects/profiler.hpp"
 #include "../effects/ssao.hpp"
 #include "com_ptr.hpp"
@@ -70,6 +71,7 @@ public:
    effects::SSAO ssao;
    effects::FFX_cas ffx_cas;
    effects::Mask_nan mask_nan;
+   effects::Postprocess_fog postprocess_fog;
    effects::Profiler profiler;
 
 private:

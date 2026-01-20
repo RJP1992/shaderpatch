@@ -138,4 +138,42 @@ struct alignas(16) Team_colors {
 
 static_assert(sizeof(Team_colors) == 144);
 
+// SWBF3-style post-process fog constants
+// Based on SceneVolumeData template parameters (1:1 mapping)
+struct alignas(16) Fog {
+   // Inverse view matrix for world position reconstruction (64 bytes)
+   glm::mat4 inv_view_matrix;
+
+   // Distance fog - SWBF3: fog[], fogNear, fogFar
+   glm::vec4 fog_color{1.0f, 1.0f, 1.0f, 0.0f};  // fog[0-3]: RGB + intensity/alpha
+   float fog_start{0.0f};                         // fogNear
+   float fog_end{80.0f};                          // fogFar
+
+   // Height/Atmospheric fog - SWBF3: fogMinHeight, fogMaxHeight, fogDensity, fogAlpha
+   float height_base{0.0f};                       // fogMinHeight
+   float height_ceiling{250.0f};                  // fogMaxHeight
+   float atmos_density{0.012f};                   // fogDensity
+   float fog_opacity{0.0f};                       // fogAlpha
+
+   // Projection params for view-space reconstruction
+   float proj_scale_x{1.0f};                      // projection[0][0]
+   float proj_scale_y{1.0f};                      // projection[1][1]
+
+   // Camera info (must be 16-byte aligned for HLSL)
+   glm::vec3 camera_position{0.0f, 0.0f, 0.0f};
+   float time{0.0f};
+
+   // Options - SWBF3: fogAdd, fogSky
+   std::uint32_t blend_additive{0};               // fogAdd: 0=lerp, 1=additive
+   std::uint32_t apply_to_sky{1};                 // fogSky: apply fog to sky (default true per SWBF3)
+
+   // Depth linearization params (extracted from projection matrix)
+   glm::vec2 depth_linearize_params{1.0f, 1.0f};
+
+   // Padding to 16-byte alignment
+   float _padding2[2]{};
+};
+
+static_assert(sizeof(Fog) == 160);
+
 }

@@ -44,6 +44,8 @@ SSAO_params show_ssao_imgui(SSAO_params params) noexcept;
 
 FFX_cas_params show_ffx_cas_imgui(FFX_cas_params params) noexcept;
 
+void show_fog_imgui(Postprocess_fog& fog) noexcept;
+
 void show_tonemapping_curve(std::function<float(float)> tonemapper) noexcept;
 }
 
@@ -53,6 +55,7 @@ Control::Control(Com_ptr<ID3D11Device5> device, shader::Database& shaders) noexc
      ssao{device, shaders},
      ffx_cas{device, shaders},
      mask_nan{device, shaders},
+     postprocess_fog{device, shaders},
      profiler{device}
 {
    if (user_config.graphics.enable_user_effects_config) {
@@ -444,6 +447,12 @@ void Control::show_post_processing_imgui() noexcept
 
       if (ImGui::BeginTabItem("Contrast Adaptive Sharpening")) {
          ffx_cas.params(show_ffx_cas_imgui(ffx_cas.params()));
+
+         ImGui::EndTabItem();
+      }
+
+      if (ImGui::BeginTabItem("Fog")) {
+         show_fog_imgui(postprocess_fog);
 
          ImGui::EndTabItem();
       }
@@ -849,6 +858,170 @@ void show_tonemapping_curve(std::function<float(float)> tonemapper) noexcept
       ImGui::TextUnformatted("0.0 to 64.0");
       break;
    }
+}
+
+void show_fog_imgui(Postprocess_fog& fog) noexcept
+{
+   auto& params = fog.fog_params();
+   bool enabled = fog.enabled();
+
+   if (ImGui::CollapsingHeader("Basic Controls", ImGuiTreeNodeFlags_DefaultOpen)) {
+      if (ImGui::Checkbox("Enabled", &enabled)) {
+         fog.enabled(enabled);
+      }
+
+      if (ImGui::IsItemHovered()) {
+         ImGui::SetTooltip(
+            "Enable SWBF3-style post-process fog.\n\n"
+            "This applies distance and height-based fog to the scene "
+            "after geometry rendering.");
+      }
+   }
+
+   ImGui::BeginDisabled(!enabled);
+
+   if (ImGui::CollapsingHeader("Distance Fog", ImGuiTreeNodeFlags_DefaultOpen)) {
+      // SWBF3: fog[0-3] = RGBA where A is intensity
+      ImGui::ColorEdit4("Fog Color", &params.fog_color.x,
+                        ImGuiColorEditFlags_Float | ImGuiColorEditFlags_AlphaBar);
+      if (ImGui::IsItemHovered()) {
+         ImGui::SetTooltip(
+            "SWBF3: fog[0-3]\n"
+            "RGB = fog color\n"
+            "Alpha = fog intensity (0 = no distance fog)");
+      }
+
+      ImGui::DragFloat("Start Distance", &params.fog_start, 1.0f, 0.0f, 10000.0f);
+      if (ImGui::IsItemHovered()) {
+         ImGui::SetTooltip("Distance at which fog begins (SWBF3: fogNear)");
+      }
+
+      ImGui::DragFloat("End Distance", &params.fog_end, 1.0f, 0.0f, 10000.0f);
+      if (ImGui::IsItemHovered()) {
+         ImGui::SetTooltip("Distance at which fog reaches maximum (SWBF3: fogFar)");
+      }
+
+      params.fog_color.w = std::clamp(params.fog_color.w, 0.0f, 2.0f);
+      params.fog_start = std::clamp(params.fog_start, 0.0f, 10000.0f);
+      params.fog_end = std::clamp(params.fog_end, params.fog_start, 10000.0f);
+   }
+
+   if (ImGui::CollapsingHeader("Height/Atmospheric Fog", ImGuiTreeNodeFlags_DefaultOpen)) {
+      ImGui::DragFloat("Height Base", &params.height_base, 1.0f, -1000.0f, 1000.0f);
+      if (ImGui::IsItemHovered()) {
+         ImGui::SetTooltip("Ground level for height fog (SWBF3: fogMinHeight)");
+      }
+
+      ImGui::DragFloat("Height Ceiling", &params.height_ceiling, 1.0f, -1000.0f, 1000.0f);
+      if (ImGui::IsItemHovered()) {
+         ImGui::SetTooltip("Height above which no fog is applied (SWBF3: fogMaxHeight)");
+      }
+
+      ImGui::DragFloat("Atmosphere Density", &params.atmos_density, 0.001f, 0.0f, 0.1f, "%.4f");
+      if (ImGui::IsItemHovered()) {
+         ImGui::SetTooltip(
+            "Density multiplier for atmospheric fog (SWBF3: fogDensity)\n\n"
+            "Uses sqrt(distance) falloff for characteristic SWBF3 look.");
+      }
+
+      ImGui::DragFloat("Fog Opacity", &params.fog_opacity, 0.01f, 0.0f, 1.0f);
+      if (ImGui::IsItemHovered()) {
+         ImGui::SetTooltip("Opacity/intensity for atmospheric fog (SWBF3: fogAlpha)");
+      }
+
+      params.height_ceiling = std::max(params.height_ceiling, params.height_base + 1.0f);
+      params.atmos_density = std::clamp(params.atmos_density, 0.0f, 0.1f);
+      params.fog_opacity = std::clamp(params.fog_opacity, 0.0f, 1.0f);
+   }
+
+   if (ImGui::CollapsingHeader("Options")) {
+      bool blend_additive = params.blend_additive != 0;
+      if (ImGui::Checkbox("Additive Blend", &blend_additive)) {
+         params.blend_additive = blend_additive ? 1 : 0;
+      }
+      if (ImGui::IsItemHovered()) {
+         ImGui::SetTooltip(
+            "Use additive blending instead of alpha blending (SWBF3: fogAdd)\n\n"
+            "Additive: color + fog_color * factor\n"
+            "Alpha: lerp(color, fog_color, factor)");
+      }
+
+      bool apply_to_sky = params.apply_to_sky != 0;
+      if (ImGui::Checkbox("Apply to Sky", &apply_to_sky)) {
+         params.apply_to_sky = apply_to_sky ? 1 : 0;
+      }
+      if (ImGui::IsItemHovered()) {
+         ImGui::SetTooltip("Whether to apply fog to the sky (SWBF3: fogSky)");
+      }
+   }
+
+   if (ImGui::CollapsingHeader("Presets")) {
+      if (ImGui::Button("Light Haze")) {
+         params.fog_color = {0.85f, 0.9f, 0.95f, 0.3f};  // RGBA with intensity
+         params.fog_start = 50.0f;
+         params.fog_end = 500.0f;
+         params.height_base = 0.0f;
+         params.height_ceiling = 200.0f;
+         params.atmos_density = 0.005f;
+         params.fog_opacity = 0.4f;
+         params.blend_additive = 0;
+      }
+      ImGui::SameLine();
+
+      if (ImGui::Button("Dense Fog")) {
+         params.fog_color = {0.7f, 0.75f, 0.8f, 0.8f};
+         params.fog_start = 10.0f;
+         params.fog_end = 150.0f;
+         params.height_base = 0.0f;
+         params.height_ceiling = 100.0f;
+         params.atmos_density = 0.02f;
+         params.fog_opacity = 0.9f;
+         params.blend_additive = 0;
+      }
+      ImGui::SameLine();
+
+      if (ImGui::Button("Sunset Atmosphere")) {
+         params.fog_color = {1.0f, 0.7f, 0.5f, 0.5f};
+         params.fog_start = 100.0f;
+         params.fog_end = 800.0f;
+         params.height_base = 0.0f;
+         params.height_ceiling = 300.0f;
+         params.atmos_density = 0.008f;
+         params.fog_opacity = 0.6f;
+         params.blend_additive = 0;
+      }
+
+      if (ImGui::Button("SWBF3 Default")) {
+         params.fog_color = {1.0f, 1.0f, 1.0f, 0.0f};  // Default: fog disabled
+         params.fog_start = 0.0f;
+         params.fog_end = 80.0f;
+         params.height_base = 0.0f;
+         params.height_ceiling = 250.0f;
+         params.atmos_density = 0.012f;
+         params.fog_opacity = 0.0f;
+         params.blend_additive = 0;
+         params.apply_to_sky = 1;  // fogSky default is true in SWBF3
+      }
+      if (ImGui::IsItemHovered()) {
+         ImGui::SetTooltip("Reset to SWBF3 SceneVolumeData default values");
+      }
+   }
+
+   if (ImGui::CollapsingHeader("Debug")) {
+      const char* debug_modes[] = {"None", "Depth", "World Y"};
+      int current_mode = static_cast<int>(fog.debug_mode());
+      if (ImGui::Combo("Debug Mode", &current_mode, debug_modes, 3)) {
+         fog.debug_mode(static_cast<Fog_debug_mode>(current_mode));
+      }
+      if (ImGui::IsItemHovered()) {
+         ImGui::SetTooltip(
+            "None: Normal fog rendering\n"
+            "Depth: R=raw depth, G=linear depth (normalized), B=params valid\n"
+            "World Y: R=world Y position, G=height fog factor, B=in height range");
+      }
+   }
+
+   ImGui::EndDisabled();
 }
 }
 }

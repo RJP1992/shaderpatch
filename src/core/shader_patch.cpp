@@ -1567,6 +1567,11 @@ void Shader_patch::set_informal_projection_matrix(const glm::mat4 matrix) noexce
    }
 }
 
+void Shader_patch::set_view_matrix(const glm::mat4 matrix) noexcept
+{
+   _view_matrix = matrix;
+}
+
 void Shader_patch::draw(const D3D11_PRIMITIVE_TOPOLOGY topology,
                         const UINT vertex_count, const UINT start_vertex) noexcept
 {
@@ -1891,6 +1896,11 @@ void Shader_patch::game_rendertype_changed() noexcept
 
       _on_rendertype_changed = [&]() noexcept {
          resolve_refraction_texture();
+
+         // Apply SWBF3-style post-process fog if enabled
+         if (_effects.postprocess_fog.enabled()) {
+            apply_postprocess_fog();
+         }
 
          if (_oit_provider.enabled() ||
              (_effects_active && _effects.config().oit_requested)) {
@@ -2616,6 +2626,89 @@ void Shader_patch::resolve_refraction_texture() noexcept
    const D3D11_BOX dest_box{0, 0, 0, dest_rt.width, dest_rt.height, 1};
 
    _image_stretcher.stretch(*_device_context, src_box, src_rt, dest_box, dest_rt);
+
+   restore_all_game_state();
+}
+
+void Shader_patch::apply_postprocess_fog() noexcept
+{
+   if (!_effects.postprocess_fog.enabled()) return;
+
+   const auto& scene_rt = _game_rendertargets[0];
+
+   // Allocate a temporary render target for the scene copy
+   auto temp_rt = _rendertarget_allocator.allocate({
+      .format = scene_rt.format,
+      .width = scene_rt.width,
+      .height = scene_rt.height,
+      .bind_flags = effects::rendertarget_bind_srv_rtv,
+   });
+
+   // Copy the scene to the temp RT
+   _device_context->CopyResource(&temp_rt.texture(), scene_rt.texture.get());
+
+   // Set up fog constants
+   cb::Fog fog_constants = _effects.postprocess_fog.fog_params();
+
+   // Compute inverse view matrix for world position reconstruction
+   // The view matrix from D3D9 is row-major; we transpose for HLSL row-vector * matrix convention
+   fog_constants.inv_view_matrix = glm::transpose(glm::inverse(_view_matrix));
+
+   // Extract projection scale (focal length) for view-space reconstruction
+   fog_constants.proj_scale_x = _postprocess_projection_matrix[0][0];
+   fog_constants.proj_scale_y = _postprocess_projection_matrix[1][1];
+
+   // Camera position from scene constants
+   fog_constants.camera_position = _cb_scene.vs_view_positionWS;
+   fog_constants.time = _cb_scene.time;
+
+   // Extract depth linearization params from projection matrix
+   // (same approach as debug_visualizer)
+   // For perspective: proj[2][2] = far/(far-near), proj[3][2] = -(far*near)/(far-near)
+   // Linearization: linear_z = mul / (add - raw_depth)
+   float linearize_mul = -_postprocess_projection_matrix[3][2];
+   float linearize_add = _postprocess_projection_matrix[2][2];
+   if (linearize_mul * linearize_add < 0) {
+      linearize_add = -linearize_add;
+   }
+   fog_constants.depth_linearize_params = glm::vec2(linearize_mul, linearize_add);
+
+   // Get depth texture - handle MSAA and buffer swap correctly
+   // (same logic as debug_visualizer)
+   ID3D11ShaderResourceView* depth_srv = nullptr;
+
+   if (_rt_sample_count > 1) {
+      // MSAA: Can't sample MSAA depth directly, use resolved farscene buffer
+      // After swap, farscene actually contains the nearscene content
+      depth_srv = _farscene_depthstencil.srv.get();
+   }
+   else if (_frame_swapped_depthstencil) {
+      // Non-MSAA with swap: original nearscene is now in farscene variable
+      depth_srv = _farscene_depthstencil.srv.get();
+   }
+   else {
+      // Non-MSAA without swap: use nearscene directly
+      depth_srv = _nearscene_depthstencil.srv.get();
+   }
+
+   if (!depth_srv) {
+      // No depth available, can't apply fog
+      return;
+   }
+
+   // Apply the fog effect
+   _effects.postprocess_fog.apply(
+      *_device_context,
+      {
+         .rtv = *scene_rt.rtv,
+         .scene_srv = *temp_rt.srv(),
+         .depth_srv = *depth_srv,
+         .width = scene_rt.width,
+         .height = scene_rt.height,
+      },
+      fog_constants,
+      _effects.profiler
+   );
 
    restore_all_game_state();
 }
